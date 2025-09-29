@@ -107,11 +107,7 @@ glm::mat4 ThING::API::build2DTransform(glm::vec2 pos, float rotation, glm::vec2 
 
 
 void ThING::API::setRotation(glm::vec2 pos, float rotation, glm::vec2 scale){
-    app.polygons[0].pushConstant.tranform = build2DTransform(
-            pos,
-            glm::radians(rotation),
-            scale
-        );
+    app.polygons[0].transform = {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale};
 }
 
 std::string ThING::API::makeUniqueId(std::string baseId) {
@@ -134,14 +130,14 @@ std::string ThING::API::makeUniqueId(std::string baseId) {
 
 
 void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
-    app.polygons.emplace_back(makeUniqueId(id), //CHECK EMPLACE VS PUSH BACK IN REFERENCE AND RVALUE REFERENCE
+    app.polygons.push_back({makeUniqueId(id), 
         static_cast<uint32_t>(app.vertices.size()), 
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
         true,
-        PushConstantData{ build2DTransform(pos, rotation, scale)}
-    );
+        {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale}
+    });
     app.vertices.reserve(app.vertices.size() + ver.size());
     app.indices.reserve(app.indices.size() + app.indices.size());
     app.vertices.insert(app.vertices.end(), ver.begin(), ver.end());
@@ -149,14 +145,14 @@ void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm:
 }
 
 void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
-    app.polygons.emplace_back(makeUniqueId(id), //CHECK EMPLACE VS PUSH BACK IN REFERENCE AND RVALUE REFERENCE
+    app.polygons.push_back({makeUniqueId(id), 
         static_cast<uint32_t>(app.vertices.size()), 
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
         true,
-        PushConstantData{ build2DTransform(pos, rotation, scale)}
-);
+        {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale}
+    });
     app.vertices.reserve(app.vertices.size() + ver.size());
     app.indices.reserve(app.indices.size() + ind.size());
     app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));

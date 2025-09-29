@@ -35,11 +35,7 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
     };
 
     polygons.push_back({"test", 0, 5, 0, 9, true, 
-        {build2DTransform(
-            {100.0f, 100.0f},
-            glm::radians(0.0f),
-            {50.0f, 50.0f}
-        )}});
+        {{100.f, 100.f}, 0.f, glm::u8vec4{10, 255, 50, 50}, {50.f, 50.f}}});
     
     indices = {
         0, 1, 2, 2, 3, 0, 4, 1, 0

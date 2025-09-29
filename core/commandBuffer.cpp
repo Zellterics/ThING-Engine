@@ -80,7 +80,7 @@ void ProtoThiApp::recordCommandBuffer(VkCommandBuffer commandBuffer,
                     VK_SHADER_STAGE_VERTEX_BIT,
                     0,
                     Polygon::PushConstantSize(),
-                    &poly.pushConstant
+                    &poly.transform
                 );
 
                 vkCmdDrawIndexed(
