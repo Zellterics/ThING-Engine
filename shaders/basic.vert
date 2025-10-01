@@ -7,9 +7,7 @@ layout(set = 0, binding = 0) uniform UBO {
 layout(push_constant) uniform Transform {
     vec2  position;
     float rotation;
-    float _pad0;
     vec2  scale;
-    vec2  _pad1;
 } pc;
 
 layout(location = 0) in vec2 inPosition;
