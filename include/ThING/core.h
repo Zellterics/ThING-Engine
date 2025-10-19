@@ -15,6 +15,7 @@
 #include <ThING/graphics/pipelineManager.h>
 #include <ThING/window/windowManager.h>
 #include <ThING/graphics/swapChainManager.h>
+#include <ThING/graphics/commandBufferManager.h>
 #include <ThING/extras/handMade.h>
 #include <ThING/extras/fpsCounter.h>
 #include <ThING/types.h>
@@ -29,13 +30,14 @@ public:
     void run();
 
     //detail
-    friend void detail::setResizedFlag(ProtoThiApp& app, bool flag);
+    friend void ThING::detail::setResizedFlag(ProtoThiApp& app, bool flag);
     friend class ::ThING::API;
 private:
     WindowManager windowManager;
     BufferManager bufferManager;
     PipelineManager pipelineManager;
     SwapChainManager swapChainManager;
+    CommandBufferManager commandBufferManager;
 
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
@@ -44,23 +46,20 @@ private:
     VkDevice device;
 
     VkQueue graphicsQueue;
-    VkQueue presentQueue;
-
-    VkCommandPool commandPool;
+    VkQueue presentQueue;    
 
     uint32_t currentFrame;
 
     VkDescriptorPool imguiDescriptorPool;
-    
-    std::vector<VkCommandBuffer> commandBuffers;
 
     std::vector<Vertex> vertices;
+    std::vector<uint16_t> indices;
+
     std::vector<Quad> quadVertices;
     std::vector<Circle> circleCenters;
     std::vector<uint16_t> quadIndices;
-    std::vector<uint16_t> indices;
 
-    // Hooks Variables
+    // Api Variables
     float zoom;
     glm::vec2 offset;
     bool framebufferResized;
@@ -80,15 +79,6 @@ private:
     void pickPhysicalDevice();
     void createLogicalDevice();
 
-    void createCommandPool();
-    void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, 
-    uint32_t imageIndex,
-    Buffer* vertexBuffers,
-    Buffer* indexBuffers,
-    Buffer& quadBuffer,
-    Buffer& quadIndexBuffer,
-    Buffer* circleBuffers);
     void drawFrame();
     
     bool isDeviceSuitable(VkPhysicalDevice device);

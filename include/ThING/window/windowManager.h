@@ -10,7 +10,7 @@ public:
 private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
         auto app = reinterpret_cast<ProtoThiApp*>(glfwGetWindowUserPointer(window));
-        detail::setResizedFlag(*app, true);
+        ThING::detail::setResizedFlag(*app, true);
     }
     GLFWwindow* window = nullptr;
 };

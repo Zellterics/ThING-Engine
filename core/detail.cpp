@@ -1,5 +1,5 @@
 #include <ThING/core.h>
 
-void detail::setResizedFlag(ProtoThiApp& app, bool flag){
+void ThING::detail::setResizedFlag(ProtoThiApp& app, bool flag){
     app.framebufferResized = true;
 }

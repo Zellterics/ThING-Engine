@@ -23,10 +23,10 @@ public:
     inline void setDevice(VkDevice device) {this->device = device;};
 
     inline VkFormat& getImageFormat() {return imageFormat;};
-    inline VkSwapchainKHR getSwapChain() const {return swapChain;};
+    inline VkSwapchainKHR getSwapChain() const {return swapChain;}; // IDK if this thing is faster with & but I'll check that later
     inline VkExtent2D& getExtent() {return swapChainExtent;};
     inline std::vector<VkImage>& getImages() {return images;};
-    inline VkSurfaceKHR getSurface() {return surface;};
+    inline VkSurfaceKHR& getSurface() {return surface;};
     inline std::vector<VkSemaphore>& getImageAvailableSemaphores() {return imageAvailableSemaphores;};
     inline std::vector<VkSemaphore>& getRenderFinishedSemaphores() {return renderFinishedSemaphores;};
     inline std::vector<VkFence>& getInFlightFences() {return inFlightFences;};

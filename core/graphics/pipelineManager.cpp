@@ -1,5 +1,6 @@
 #include "ThING/consts.h"
 #include "ThING/types/buffer.h"
+#include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <vulkan/vulkan_core.h>
 
@@ -129,7 +130,7 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicPipelineLayoutInfo.pushConstantRangeCount = 1;
     basicPipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
-    if (vkCreatePipelineLayout(device, &basicPipelineLayoutInfo, nullptr, &pipelineLayouts[0]) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device, &basicPipelineLayoutInfo, nullptr, &pipelineLayouts[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -144,12 +145,12 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicPipelineInfo.pMultisampleState = &basicMultisampling;
     basicPipelineInfo.pColorBlendState = &basicColorBlending;
     basicPipelineInfo.pDynamicState = &basicDynamicState;
-    basicPipelineInfo.layout = pipelineLayouts[0];
+    basicPipelineInfo.layout = pipelineLayouts[PIPELINE_TYPE_POLYGON];
     basicPipelineInfo.renderPass = renderPass;
     basicPipelineInfo.subpass = 0;
     basicPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &basicPipelineInfo, nullptr, &graphicsPipelines[0]) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &basicPipelineInfo, nullptr, &graphicsPipelines[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
@@ -257,7 +258,7 @@ void PipelineManager::createCircleGraphicsPipeline(){
     circlePipelineLayoutInfo.pushConstantRangeCount = 0;
     circlePipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    if (vkCreatePipelineLayout(device, &circlePipelineLayoutInfo, nullptr, &pipelineLayouts[1]) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device, &circlePipelineLayoutInfo, nullptr, &pipelineLayouts[PIPELINE_TYPE_CIRCLE]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -272,12 +273,12 @@ void PipelineManager::createCircleGraphicsPipeline(){
     circlePipelineInfo.pMultisampleState = &circleMultisampling;
     circlePipelineInfo.pColorBlendState = &circleColorBlending;
     circlePipelineInfo.pDynamicState = &circleDynamicState;
-    circlePipelineInfo.layout = pipelineLayouts[1];
+    circlePipelineInfo.layout = pipelineLayouts[PIPELINE_TYPE_CIRCLE];
     circlePipelineInfo.renderPass = renderPass;
     circlePipelineInfo.subpass = 0;
     circlePipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &circlePipelineInfo, nullptr, &graphicsPipelines[1]) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &circlePipelineInfo, nullptr, &graphicsPipelines[PIPELINE_TYPE_CIRCLE]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 

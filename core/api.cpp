@@ -1,3 +1,4 @@
+#include "ThING/types/polygon.h"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include <ThING/types/vertex.h>
@@ -5,6 +6,7 @@
 #include <iterator>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <ThING/api.h>
 #include "imgui.h"
@@ -106,11 +108,15 @@ glm::mat4 ThING::API::build2DTransform(glm::vec2 pos, float rotation, glm::vec2 
 }
 
 
-void ThING::API::setRotation(glm::vec2 pos, float rotation, glm::vec2 scale){
-    app.polygons[0].transform = {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale};
+void ThING::API::setPolygonTransform(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale){
+    for(Polygon& pol : app.polygons){
+        if(pol.id == id){
+            pol.transform = {pos, rotation, scale};
+        }
+    }
 }
 
-std::string ThING::API::makeUniqueId(std::string baseId) {
+std::string ThING::API::makeUniqueId(std::string& baseId) {
     std::string uniqueId = baseId;
     int counter = 1;
 
@@ -129,29 +135,27 @@ std::string ThING::API::makeUniqueId(std::string baseId) {
 }
 
 
-void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
+void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
     app.polygons.push_back({makeUniqueId(id), 
         static_cast<uint32_t>(app.vertices.size()), 
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
-        true,
-        {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale}
+        {pos, rotation, scale}
     });
     app.vertices.reserve(app.vertices.size() + ver.size());
-    app.indices.reserve(app.indices.size() + app.indices.size());
+    app.indices.reserve(app.indices.size() + ind.size());
     app.vertices.insert(app.vertices.end(), ver.begin(), ver.end());
     app.indices.insert(app.indices.end(), ind.begin(), ind.end());
 }
 
-void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
+void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
     app.polygons.push_back({makeUniqueId(id), 
         static_cast<uint32_t>(app.vertices.size()), 
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
-        true,
-        {pos, rotation, glm::u8vec4{10, 255, 50, 50}, scale}
+        {pos, rotation, scale}
     });
     app.vertices.reserve(app.vertices.size() + ver.size());
     app.indices.reserve(app.indices.size() + ind.size());
@@ -164,7 +168,8 @@ void ThING::API::addPolygon(std::string& id, glm::vec2 pos, float rotation, glm:
 Polygon& ThING::API::getPolygon(std::string id){
     for(Polygon& pol : app.polygons)
         if(pol.id == id)
-            return pol;
+            if(pol.alive)
+                return pol;
     app.polygons.emplace_back();
     return app.polygons.back();
 }
@@ -186,7 +191,7 @@ bool ThING::API::addRegularPol(std::string id, size_t sides, glm::vec2 pos, glm:
     }
     std::vector<uint16_t> indices;
     indices.reserve(sides);
-    for(int i = 0; i < sides - 1;){
+    for(int i = 0; i < sides - 2;){
         indices.push_back(0);
         indices.push_back(++i);
         indices.push_back(++i);
@@ -194,4 +199,15 @@ bool ThING::API::addRegularPol(std::string id, size_t sides, glm::vec2 pos, glm:
     }
     addPolygon(id, pos, 0.f, scale, std::move(vertices), std::move(indices));
     return true;
+}
+
+/// this returns a view, NEVER save this value
+std::span<std::string_view> ThING::API::viewPolygonIdList(){
+    static std::vector<std::string_view> idList;
+    idList.clear();
+    idList.reserve(app.polygons.size());
+    for(const Polygon& pol : app.polygons){
+        idList.emplace_back(pol.id);
+    }
+    return idList;
 }

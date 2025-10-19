@@ -3,6 +3,7 @@
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
+#include "ThING/types/contexts.h"
 #include "imgui.h"
 
 #include "backends/imgui_impl_glfw.h"
@@ -34,8 +35,8 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
         {{ 0.0f,  1.0f}, {1.0f, 0.0f, 1.0f}}
     };
 
-    polygons.push_back({"test", 0, 5, 0, 9, true, 
-        {{100.f, 100.f}, 0.f, glm::u8vec4{10, 255, 50, 50}, {50.f, 50.f}}});
+    polygons.push_back({"test", 0, 5, 0, 9, 
+        {{100.f, 100.f}, 0.f, {50.f, 50.f}}});
     
     indices = {
         0, 1, 2, 2, 3, 0, 4, 1, 0
@@ -69,12 +70,12 @@ void ProtoThiApp::initVulkan() {
     pipelineManager.init(device, swapChainManager.getImageFormat());
     swapChainManager.createFramebuffers(pipelineManager.getrenderPass());
     pipelineManager.createPipelines();
-    createCommandPool();
-    bufferManager = BufferManager{device, physicalDevice, commandPool, graphicsQueue};
+    commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
+    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.getCommandPool(), graphicsQueue};
     bufferManager.createCustomBuffers(vertices, indices, quadVertices, quadIndices, circleCenters);
     bufferManager.createUniformBuffers();
     pipelineManager.createDescriptors(bufferManager.getUniformBuffers());
-    createCommandBuffers();
+    commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
     swapChainManager.createSyncObjects();
 }
 
@@ -89,10 +90,8 @@ void ProtoThiApp::cleanup() {
     pipelineManager.~PipelineManager();
     vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
 
-    vkFreeCommandBuffers(device, commandPool,
-        static_cast<uint32_t>(commandBuffers.size()),
-        commandBuffers.data());
-    commandBuffers.clear();
+    commandBufferManager.cleanUpCommandBuffers(device);
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         
         vkDestroySemaphore(device, swapChainManager.getImageAvailableSemaphores()[i], nullptr);
@@ -113,7 +112,7 @@ void ProtoThiApp::cleanup() {
     //     pipelineLayouts.pop_back();
     // }
 
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    commandBufferManager.cleanUpCommandPool(device);
 
     vkDestroyDevice(device, nullptr);
 
@@ -144,8 +143,11 @@ void ProtoThiApp::drawFrame() {
 
     vkResetFences(device, 1, &swapChainManager.getInFlightFences()[currentFrame]);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex, bufferManager.getVertexBuffers(), bufferManager.getIndexBuffers(), bufferManager.getQuadBuffer(), bufferManager.getQuadIndexBuffer(), bufferManager.getCircleBuffers());
+    vkResetCommandBuffer(commandBufferManager.getCommandBufferOnFrame(currentFrame), /*VkCommandBufferResetFlagBits*/ 0);
+    PolygonContext polygonContext = {polygons, bufferManager.getVertexBuffers(), bufferManager.getIndexBuffers()};
+    CircleContext circleContext = {circleCenters, quadIndices, bufferManager.getQuadBuffer(), bufferManager.getQuadIndexBuffer(), bufferManager.getCircleBuffers()};
+    FrameContext frameContext{imageIndex, &clearColor, pipelineManager, swapChainManager};
+    commandBufferManager.recordCommandBuffer(currentFrame, polygonContext, circleContext, frameContext);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -157,7 +159,7 @@ void ProtoThiApp::drawFrame() {
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &commandBufferManager.getCommandBufferOnFrame(currentFrame);
 
     VkSemaphore signalSemaphores[] = {swapChainManager.getRenderFinishedSemaphores()[imageIndex]};
     submitInfo.signalSemaphoreCount = 1;

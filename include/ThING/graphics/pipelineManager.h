@@ -6,7 +6,13 @@
 #include <ThING/extras/handMade.h>
 #include <ThING/consts.h>
 #include <vulkan/vulkan_core.h>
-#include <ThING/types.h>
+#include <ThING/types/buffer.h>
+#include <ThING/types/quad.h>
+#include <ThING/types/circle.h>
+#include <ThING/types/polygon.h>
+#include <ThING/types/uniformBufferObject.h>
+#include <ThING/types/vertex.h>
+#include <ThING/types/enums.h>
 
 class PipelineManager{
 public:
@@ -33,8 +39,8 @@ private:
     VkShaderModule createShaderModule(const std::vector<char>& code);
 
     VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayouts[2];
-    VkPipeline graphicsPipelines[2];
+    VkPipelineLayout pipelineLayouts[PIPELINE_TYPE_COUNT];
+    VkPipeline graphicsPipelines[PIPELINE_TYPE_COUNT];
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorSet descriptorSets[MAX_FRAMES_IN_FLIGHT];
     VkDescriptorPool descriptorPool;

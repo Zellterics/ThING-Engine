@@ -1,5 +1,5 @@
 class ProtoThiApp;
 
-namespace detail {
+namespace ThING::detail {
     void setResizedFlag(ProtoThiApp& app, bool flag);
 }
