@@ -13,7 +13,6 @@ class BufferManager{
 public:
     BufferManager() = default;
     BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue);
-    ~BufferManager();
     void uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -44,7 +43,6 @@ public:
     Buffer& getQuadIndexBuffer() {return quadIndexBuffer;};
     Buffer* getCircleBuffers() {return circleBuffers;};
     Buffer* getUniformBuffers() {return uniformBuffers;};
-    void setUpdateUBOFlag(bool flag) {updateUBOFlag = flag;};
 private:
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -54,7 +52,6 @@ private:
     VkQueue graphicsQueue;
     VkPhysicalDevice physicalDevice;
 
-    bool updateUBOFlag;
     std::vector<DynamicBuffer<MAX_FRAMES_IN_FLIGHT>> stagingBuffers;
     UniformBufferObject ubo;
     Buffer vertexBuffers[MAX_FRAMES_IN_FLIGHT];

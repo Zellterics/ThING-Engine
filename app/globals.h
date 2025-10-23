@@ -8,3 +8,5 @@ extern float spawnPoint[2];
 extern float spawnRadius;
 extern int dockedSizeX;
 extern float simSpeed;
+extern unsigned int collissionCount;
+extern float stiffness;

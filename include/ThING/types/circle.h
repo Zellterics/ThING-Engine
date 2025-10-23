@@ -1,5 +1,7 @@
 #pragma once
 
+#include "glm/fwd.hpp"
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -10,6 +12,8 @@ struct Circle {
     glm::vec2 pos;
     float size;
     glm::vec3 color;
+    float outlineSize = 0;
+    glm::vec4 outlineColor = {0,0,0,1};
 
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
@@ -20,12 +24,12 @@ struct Circle {
         return bindingDescription;
     }
 
-    bool operator==(const Circle& a){
+    bool operator==(const Circle& a) const {
         return this->pos == a.pos && this->color == a.color && this->size == a.size;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
+    static std::array<VkVertexInputAttributeDescription, 5> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 5> attributeDescriptions{};
 
         attributeDescriptions[0].binding = 1;
         attributeDescriptions[0].location = 2;
@@ -41,6 +45,16 @@ struct Circle {
         attributeDescriptions[2].location = 4;
         attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
         attributeDescriptions[2].offset = offsetof(Circle, color);
+
+        attributeDescriptions[3].binding = 1;
+        attributeDescriptions[3].location = 5;
+        attributeDescriptions[3].format = VK_FORMAT_R32_SFLOAT;
+        attributeDescriptions[3].offset = offsetof(Circle, outlineSize);
+
+        attributeDescriptions[4].binding = 1;
+        attributeDescriptions[4].location = 6;
+        attributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributeDescriptions[4].offset = offsetof(Circle, outlineColor);
 
         return attributeDescriptions;
     }

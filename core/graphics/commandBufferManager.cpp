@@ -1,5 +1,6 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <ThING/graphics/commandBufferManager.h>
+#include "ThING/types/polygon.h"
 #include "backends/imgui_impl_vulkan.h"
 
 CommandBufferManager::CommandBufferManager() {
@@ -118,14 +119,33 @@ void CommandBufferManager::recordPolygons(VkCommandBuffer& commandBuffer, const 
     vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
     for (const auto& poly : polygonContext.polygons) {
         if (!poly.alive) continue;
-
+        Transform pc = poly.transform;
+        pc.drawOutline = 1.f;
         vkCmdPushConstants(
             commandBuffer,
             frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
             VK_SHADER_STAGE_VERTEX_BIT,
             0,
             Polygon::PushConstantSize(),
-            &poly.transform
+            &pc
+        );
+
+        vkCmdDrawIndexed(
+            commandBuffer,
+            poly.indexCount,
+            1,
+            poly.indexOffset,
+            poly.vertexOffset,
+            0
+        );
+        pc.drawOutline = 0.f;
+        vkCmdPushConstants(
+            commandBuffer,
+            frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            Polygon::PushConstantSize(),
+            &pc
         );
 
         vkCmdDrawIndexed(

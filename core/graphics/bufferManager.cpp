@@ -12,17 +12,13 @@
 
 BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue) 
 : device(device), physicalDevice(physicalDevice), commandPool(commandPool), graphicsQueue(graphicsQueue) {
-    updateUBOFlag = true;
     ubo = {};
 }
 
-BufferManager::~BufferManager(){
-
-}
-
-
-
 void BufferManager::uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData){
+    if(bufferSize == 0){
+        return;
+    }
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -36,6 +32,9 @@ void BufferManager::uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void
 }
 
 void BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
+    if(size == 0){
+        size = 16;
+    }
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = size;
@@ -63,6 +62,9 @@ void BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
 
 
 void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
+    if(size == 0){
+        return;
+    }
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -115,6 +117,9 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
     uint32_t frameIndex,
     VkBufferUsageFlags usage,
     size_t id){
+    if(newBufferSize == 0){
+        return;
+    }
     if (stagingBuffers[id].bufferSizes[frameIndex] < newBufferSize){
         stagingBuffers[id].bufferSizes[frameIndex] = newBufferSize;
         if(passedBuffer.buffer){
@@ -192,25 +197,21 @@ void BufferManager::updateUniformBuffers(VkExtent2D& swapChainExtent, float zoom
     static float width = 0;
     static float height = 0;
 
-
-    if(width != (float) swapChainExtent.width || height != (float) swapChainExtent.height || updateUBOFlag){
-        width = (float) swapChainExtent.width;
-        height = (float) swapChainExtent.height;
-        if(zoom == 0){
-            zoom = .001;
-        }
-        float halfWidth = (width / 2.0f) / zoom;
-        float halfHeight = (height / 2.0f) / zoom;
-        ubo.projection = glm::ortho(
-            -halfWidth + offset.x, halfWidth + offset.x,
-            -halfHeight + offset.y, halfHeight + offset.y,
-            -1.0f, 1.0f
-        );
+    width = (float) swapChainExtent.width;
+    height = (float) swapChainExtent.height;
+    if(zoom == 0){
+        zoom = .001;
     }
-    
+    float halfWidth = (width / 2.0f) / zoom;
+    float halfHeight = (height / 2.0f) / zoom;
+    ubo.projection = glm::ortho(
+        -halfWidth + offset.x, halfWidth + offset.x,
+        -halfHeight + offset.y, halfHeight + offset.y,
+        -1.0f, 1.0f
+    );
+    ubo.viewportSize = {swapChainExtent.width, swapChainExtent.height};
     if(!mappedData[frameIndex]){
         vkMapMemory(device, uniformBuffers[frameIndex].memory, 0, bufferSize, 0, &mappedData[frameIndex]);
-        updateUBOFlag = false;
     }
     
     memcpy(mappedData[frameIndex], &ubo, (size_t) bufferSize);

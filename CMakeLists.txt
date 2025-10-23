@@ -21,6 +21,7 @@ add_compile_definitions(DEBUG=true)
 include_directories(
     external/glfw/include
     external/imgui
+    external
     app
     app/UI
     app/update

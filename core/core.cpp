@@ -26,21 +26,6 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
     framebufferResized = false;
     clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // STANDAR = BLACK
     currentFrame = 0;
-    //ALL THE NEXT IS FOR THE EXAMPLE SQUARE, PLEASE "REMOVE" LATER AND REPLACE WITH A SINGLE TRIANGLE OFF SCREEN
-    vertices = {
-        {{ 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-        {{ 0.0f,  1.0f}, {1.0f, 0.0f, 1.0f}}
-    };
-
-    polygons.push_back({"test", 0, 5, 0, 9, 
-        {{100.f, 100.f}, 0.f, {50.f, 50.f}}});
-    
-    indices = {
-        0, 1, 2, 2, 3, 0, 4, 1, 0
-    };
 
     quadVertices = {
         {{-1.f, -1.f}, {-1.0f, -1.0f}},
@@ -48,11 +33,6 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
         {{1.f, 1.f}, {1.0f, 1.0f}},
         {{-1.f, 1.f}, {-1.0f, 1.0f}}
     };
-
-    circleCenters = {
-        {{-50.f, -50.f},4.f, {1.0f, 0.0f, 0.0f}}
-    };
-
     quadIndices = {0,1,2,2,3,0};
 }
 

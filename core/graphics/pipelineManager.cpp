@@ -229,7 +229,13 @@ void PipelineManager::createCircleGraphicsPipeline(){
 
     VkPipelineColorBlendAttachmentState circleColorBlendAttachment{};
     circleColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    circleColorBlendAttachment.blendEnable = VK_FALSE;
+    circleColorBlendAttachment.blendEnable = VK_TRUE;
+    circleColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    circleColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    circleColorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    circleColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    circleColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    circleColorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo circleColorBlending{};
     circleColorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

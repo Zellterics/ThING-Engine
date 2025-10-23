@@ -7,3 +7,5 @@ float spawnPoint[2] = {0,0};
 float spawnRadius = 10.f;
 int dockedSizeX;
 float simSpeed = .25;
+unsigned int collissionCount = 0;
+float stiffness = .25f;
