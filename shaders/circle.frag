@@ -22,10 +22,8 @@ void main() {
     float alphaOutline = outlineMask * fragOutlineColor.a;
     float a            = alphaFill + alphaOutline;
 
-    vec3 rgbStraight = (a > 1e-6)
-        ? ( (fragFillColor * alphaFill + fragOutlineColor.rgb * alphaOutline) / a )
-        : vec3(0.0);
-
     if (a <= 0.0) discard;
-    outColor = vec4(rgbStraight, a);
+
+    vec3 rgbPremul = fragFillColor * alphaFill + fragOutlineColor.rgb * alphaOutline;
+    outColor = vec4(rgbPremul, a);
 }
