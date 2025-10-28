@@ -124,7 +124,7 @@ void CommandBufferManager::recordPolygons(VkCommandBuffer& commandBuffer, const 
         vkCmdPushConstants(
             commandBuffer,
             frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0,
             Polygon::PushConstantSize(),
             &pc

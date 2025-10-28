@@ -52,9 +52,7 @@ void UI(ThING::API& api, FPSCounter& fps){
 
     ImGui::Text("Circles: %d", api.getCircleAmount());
     ImGui::SliderInt("FPS: ", &speed, 10, 420);
-    Slider2DFloat("Spawn Point", &spawnPoint[0], &spawnPoint[1], -1.0f, 1.0f, -1.0f, 1.0f);
     Slider2DFloat("Gravity", &gravity[0], &gravity[1], -5.0f, 5.0f, -5.0f, 5.0f);
-    ImGui::SliderFloat("spawnRad: ", &spawnRadius, 0.0f, 100.0f, "%.3f");
     ImGui::SliderFloat("Stiffness: ", &stiffness, 0.01f, 0.4f, "%.3f");
     ImGui::Text("Real FPS: %d", (int)(fps.getFPS() + 1));
     ImGui::Text("Collisions: %d", collissionCount);
@@ -86,6 +84,7 @@ void UI(ThING::API& api, FPSCounter& fps){
                     Slider2DFloat((pol.id + "pos").c_str(), &pol.transform.position.x, &pol.transform.position.y, -500.0f, 500.0f, -500.0f, 500.0f);
                     if(ImGui::Button((pol.id + "del").c_str())){
                         api.deletePolygon(pol.id);
+                        openedWindows[str] = false;
                     }
                     ImGui::PopID();
                     ImGui::PopItemWidth();

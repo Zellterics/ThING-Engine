@@ -11,5 +11,6 @@ inline const size_t CURRENT_PIPELINES = 2;
 
 //Polygon.h
 inline const char* NULL_POLYGON_ID = "NULL_POLYGON_ID";
+inline const char* NULL_CIRCLE_ID = "NULL_CIRCLE_ID";
 inline const Circle NULL_CIRCLE{{1000,1000}, 1000, {1000,1000,1000}};
 inline const Polygon NULL_POLYGON{};

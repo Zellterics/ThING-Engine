@@ -77,7 +77,20 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
     createSwapChain(physicalDevice, window);
     createImageViews();
     createFramebuffers(renderPass);
+
+    if (renderFinishedSemaphores.size() != images.size()) {
+        for (auto s : renderFinishedSemaphores) vkDestroySemaphore(device, s, nullptr);
+        renderFinishedSemaphores.clear();
+        renderFinishedSemaphores.resize(images.size());
+        VkSemaphoreCreateInfo si{}; si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        for (size_t i=0; i<renderFinishedSemaphores.size(); ++i) {
+            if (vkCreateSemaphore(device, &si, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to recreate renderFinished semaphore!");
+            }
+        }
+    }
 }
+
 
 void SwapChainManager::createImageViews() {
     imageViews.resize(images.size());

@@ -124,7 +124,10 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
         stagingBuffers[id].bufferSizes[frameIndex] = newBufferSize;
         if(passedBuffer.buffer){
             vkWaitForFences(device, 1, &inFlightFences, VK_TRUE, UINT64_MAX);
-            passedBuffer.~Buffer();
+            if (passedBuffer.buffer) {
+                vkWaitForFences(device, 1, &inFlightFences, VK_TRUE, UINT64_MAX);
+                passedBuffer.destroy();
+            }
             passedBuffer.device = device;
         }    
         createBuffer(stagingBuffers[id].bufferSizes[frameIndex], 
@@ -132,10 +135,9 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
             passedBuffer.buffer, 
             passedBuffer.memory);
-        if(stagingBuffers[id].stagingBuffer.buffer){
+        if (stagingBuffers[id].stagingBuffer.buffer){
             vkUnmapMemory(device, stagingBuffers[id].stagingBuffer.memory);
-            stagingBuffers[id].stagingBuffer.~Buffer();
-            stagingBuffers[id].stagingBuffer.device = device;
+            stagingBuffers[id].stagingBuffer.destroy();
             stagingBuffers[id].stagingBuffer = {};
             stagingBuffers[id].stagingBuffer.device = device;
             stagingBuffers[id].isMapped = false;
@@ -255,13 +257,14 @@ void BufferManager::createCustomBuffers(std::vector<Vertex>& vertices,
 }
 
 void BufferManager::cleanUp(){
-    quadBuffer.~Buffer();  
-    quadIndexBuffer.~Buffer();
+    quadBuffer.destroy();
+    quadIndexBuffer.destroy();
+
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        vertexBuffers[i].~Buffer();
-        indexBuffers[i].~Buffer();  
-        uniformBuffers[i].~Buffer(); 
-        circleBuffers[i].~Buffer();  
+        vertexBuffers[i].destroy();
+        indexBuffers[i].destroy();
+        uniformBuffers[i].destroy();
+        circleBuffers[i].destroy();
     }
 
     for (auto& dyn : stagingBuffers) {
@@ -270,17 +273,7 @@ void BufferManager::cleanUp(){
             dyn.isMapped = false;
             dyn.mappedData = nullptr;
         }
-        if (dyn.stagingBuffer.buffer != VK_NULL_HANDLE)
-            vkDestroyBuffer(device, dyn.stagingBuffer.buffer, nullptr);
-        if (dyn.stagingBuffer.memory != VK_NULL_HANDLE)
-            vkFreeMemory(device, dyn.stagingBuffer.memory, nullptr);
-        dyn.stagingBuffer.buffer = VK_NULL_HANDLE;
-        dyn.stagingBuffer.memory = VK_NULL_HANDLE;
+        dyn.stagingBuffer.destroy();
     }
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-        if (uniformBuffers[i].buffer != VK_NULL_HANDLE)
-            vkDestroyBuffer(device, uniformBuffers[i].buffer, nullptr);
-        if (uniformBuffers[i].memory != VK_NULL_HANDLE)
-            vkFreeMemory(device, uniformBuffers[i].memory, nullptr);
-    }
+    stagingBuffers.clear();
 }

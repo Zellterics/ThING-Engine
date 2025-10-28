@@ -24,6 +24,8 @@ public:
     void createDescriptors(Buffer uniformBuffers[MAX_FRAMES_IN_FLIGHT]);
     void createRenderPass(VkFormat& swapChainImageFormat);
 
+    void cleanUp();
+
     inline VkRenderPass& getrenderPass() {return renderPass;};
     inline VkPipelineLayout* getLayouts() {return pipelineLayouts;};
     inline VkPipeline* getGraphicsPipelines() {return graphicsPipelines;};

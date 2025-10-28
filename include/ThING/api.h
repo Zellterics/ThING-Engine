@@ -1,8 +1,10 @@
 #pragma once
+#include "ThING/consts.h"
 #include "ThING/types/circle.h"
 #include "ThING/types/polygon.h"
 #include "glm/fwd.hpp"
 #include <ThING/core.h>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -47,11 +49,11 @@ namespace ThING{
         bool playAudio(const std::string& soundFile, uint8_t volume);
 
         ThING::Collision get2ObjCollision(const Circle& circle1, const Circle& circle2);
-        ThING::Collision get2ObjCollision(const Circle& circle, const Polygon& polygon);
-        ThING::Collision get2ObjCollision(const Polygon& polygon, const Circle& circle);
-        ThING::Collision get2ObjCollision(const Polygon& polygon1, const Polygon& polygon2);
-        // MAYBE DELETE LATER ONLY TESTS
-        std::string getCircleIdByIndex(std::size_t hit){return circleIdsByIndex[hit];}
+        // ThING::Collision get2ObjCollision(const Circle& circle, const Polygon& polygon);
+        // ThING::Collision get2ObjCollision(const Polygon& polygon, const Circle& circle); Maybe, just maybe add later
+        // ThING::Collision get2ObjCollision(const Polygon& polygon1, const Polygon& polygon2); I really think this is getting out of scope
+        std::string getCircleIdByIndex(std::size_t index){return circleIdsByIndex.size() > index ? circleIdsByIndex[index] : NULL_CIRCLE_ID;}
+        std::string getPolygonIdByIndex(std::size_t index){return app.polygons.size() > index ? app.polygons[index].id : NULL_POLYGON_ID;};
     private:
         void addPolygon(Polygon&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
 

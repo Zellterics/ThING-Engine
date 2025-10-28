@@ -19,6 +19,10 @@ PipelineManager::PipelineManager(){
 }
 
 PipelineManager::~PipelineManager(){
+
+}
+
+void PipelineManager::cleanUp(){
     if(device == VK_NULL_HANDLE){
         return;
     }
@@ -95,7 +99,13 @@ void PipelineManager::createBasicGraphicsPipeline(){
 
     VkPipelineColorBlendAttachmentState basicColorBlendAttachment{};
     basicColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    basicColorBlendAttachment.blendEnable = VK_FALSE;
+    basicColorBlendAttachment.blendEnable = VK_TRUE;
+    basicColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    basicColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    basicColorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    basicColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    basicColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    basicColorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo basicColorBlending{};
     basicColorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -119,7 +129,7 @@ void PipelineManager::createBasicGraphicsPipeline(){
 
     // push constants for polygon transforms
     VkPushConstantRange pushConstantRange{};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     pushConstantRange.offset = 0;
     pushConstantRange.size = Polygon::PushConstantSize();
 

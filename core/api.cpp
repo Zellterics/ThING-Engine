@@ -203,7 +203,7 @@ void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
-        {pos, rotation, scale, 5.f, {1, 1, 0, 1}, windingSign}
+        {pos, rotation, scale, 5.f, {1, 1, 0, .1}, windingSign}
     });
     app.vertices.reserve(app.vertices.size() + ver.size());
     app.indices.reserve(app.indices.size() + ind.size());
@@ -404,8 +404,4 @@ ThING::Collision ThING::API::get2ObjCollision(const Circle& circle1, const Circl
     hit.normal = collision * invDist;
     hit.depth = summedSize - dist;
     return hit;
-    return {};
 }
-ThING::Collision ThING::API::get2ObjCollision(const Circle& circle, const Polygon& polygon){return ThING::Collision{};}
-ThING::Collision ThING::API::get2ObjCollision(const Polygon& polygon, const Circle& circle){return ThING::Collision{};}
-ThING::Collision ThING::API::get2ObjCollision(const Polygon& polygon1, const Polygon& polygon2){return ThING::Collision{};}

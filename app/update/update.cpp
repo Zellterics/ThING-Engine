@@ -1,6 +1,7 @@
 #include "update.h"
 #include <ThING/core.h>
 #include <ThING/extras/handMade.h>
+#include "ThING/consts.h"
 #include "ThING/types/collission.h"
 #include "glm/common.hpp"
 #include "glm/fwd.hpp"
@@ -22,19 +23,19 @@ void update(ThING::API& api, FPSCounter& fps){
     glm::vec2 randomPos = {
         getRandomNumber((x - dockedSizeX / 2.f) * spawnPoint[0] + dockedSizeX / 2.f, ((x - dockedSizeX / 2.f - spawnRadius) * spawnPoint[0]) + spawnRadius + dockedSizeX / 2.f), 
         getRandomNumber(y * spawnPoint[1], ((y - spawnRadius) * spawnPoint[1]) + spawnRadius)};
-    const float BIGGER_RADIUS = 8;
+    const float BIGGER_RADIUS = 4;
     const float BIGGER_RADIUS_MINUS = BIGGER_RADIUS - 1;
-    const float SMALLER_RADIUS = 4;
+    const float SMALLER_RADIUS = 2;
     if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Left)){
         ImVec2 pos = ImGui::GetMousePos();
         glm::vec2 poss = {pos.x - (x), pos.y - (y)};
         if(poss.x > -x + dockedSizeX + 5){
             glm::vec3 color = {getRandomNumber(0.0f,100.0f)/100.0f, getRandomNumber(0.0f,100.0f)/100.0f, getRandomNumber(0.0f,100.0f)/100.0f};
             count++;
-            api.addCircle(std::to_string(count), poss,getRandomNumber(SMALLER_RADIUS,BIGGER_RADIUS), color);
-            api.getCircle(std::to_string(count)).outlineSize = .5;
+            api.addCircle(std::to_string(count), poss,getRandomNumber(SMALLER_RADIUS,BIGGER_RADIUS), {0,0,1});
+            api.getCircle(std::to_string(count)).outlineSize = 5;
             color = glm::abs(color - 1.f);
-            api.getCircle(std::to_string(count)).outlineColor = {color, 1};
+            api.getCircle(std::to_string(count)).outlineColor = {0,0, 1, .3};
             circlePhysics.push_back({poss, poss, {0.f,0.f}});
         }
     }
@@ -51,11 +52,12 @@ void update(ThING::API& api, FPSCounter& fps){
         }
         if (hit != -1) {
             const std::string& delId = api.getCircleIdByIndex((std::size_t)hit);
+            if (delId != NULL_CIRCLE_ID){
+                circlePhysics[hit] = std::move(circlePhysics.back());
+                circlePhysics.pop_back();
 
-            circlePhysics[hit] = std::move(circlePhysics.back());
-            circlePhysics.pop_back();
-
-            api.deleteCircle(delId);
+                api.deleteCircle(delId);
+            }
         }
     }
     const int steps = 4;

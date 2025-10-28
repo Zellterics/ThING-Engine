@@ -66,8 +66,7 @@ void ProtoThiApp::cleanup() {
     ImGui::DestroyContext();
 
     swapChainManager.cleanupSwapChain();
-
-    pipelineManager.~PipelineManager();
+    pipelineManager.cleanUp();
     vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
 
     commandBufferManager.cleanUpCommandBuffers(device);
