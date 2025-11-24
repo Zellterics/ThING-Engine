@@ -386,7 +386,7 @@ bool ThING::API::playAudio(const std::string& soundFile, uint8_t volume){
     return true;
 }
 
-ThING::Collision ThING::API::get2ObjCollision(const Circle& circle1, const Circle& circle2){
+ThING::Collision ThING::API::getCircleCollision(const Circle& circle1, const Circle& circle2){
     ThING::Collision hit;
     const glm::vec2 collision = circle2.pos - circle1.pos;
     const float summedSize = circle1.size + circle2.size;

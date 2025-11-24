@@ -23,7 +23,6 @@ glm::mat4 build2DTransform(glm::vec2 pos, float rotation, glm::vec2 scale) {
 ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
     zoom = 1;
     offset = {0, 0};
-    framebufferResized = false;
     clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // STANDAR = BLACK
     currentFrame = 0;
 
@@ -162,8 +161,8 @@ void ProtoThiApp::drawFrame() {
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-        framebufferResized = false;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || windowManager.resizedFlag) {
+        windowManager.resizedFlag = false;
         swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getrenderPass());
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");

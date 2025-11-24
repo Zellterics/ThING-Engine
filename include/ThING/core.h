@@ -10,7 +10,6 @@
 #include <cstdint>
 
 #include <ThING/consts.h>
-#include <ThING/core/detail.h>
 #include <ThING/graphics/bufferManager.h>
 #include <ThING/graphics/pipelineManager.h>
 #include <ThING/window/windowManager.h>
@@ -29,8 +28,6 @@ public:
     ProtoThiApp();
     void run();
 
-    //detail
-    friend void ThING::detail::setResizedFlag(ProtoThiApp& app, bool flag);
     friend class ::ThING::API;
 private:
     WindowManager windowManager;
@@ -62,7 +59,6 @@ private:
     // Api Variables
     float zoom;
     glm::vec2 offset;
-    bool framebufferResized;
     VkClearValue clearColor;
     std::vector<Polygon> polygons;
 

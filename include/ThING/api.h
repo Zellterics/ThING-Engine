@@ -48,7 +48,7 @@ namespace ThING{
         bool playAudio(const std::string& soundFile);
         bool playAudio(const std::string& soundFile, uint8_t volume);
 
-        ThING::Collision get2ObjCollision(const Circle& circle1, const Circle& circle2);
+        ThING::Collision getCircleCollision(const Circle& circle1, const Circle& circle2);
         // ThING::Collision get2ObjCollision(const Circle& circle, const Polygon& polygon);
         // ThING::Collision get2ObjCollision(const Polygon& polygon, const Circle& circle); Maybe, just maybe add later
         // ThING::Collision get2ObjCollision(const Polygon& polygon1, const Polygon& polygon2); I really think this is getting out of scope
