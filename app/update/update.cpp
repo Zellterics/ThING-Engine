@@ -2,46 +2,43 @@
 #include <ThING/core.h>
 #include <ThING/extras/handMade.h>
 #include "ThING/consts.h"
-#include "ThING/types/collission.h"
-#include "glm/common.hpp"
 #include "glm/fwd.hpp"
 #include "globals.h"
 #include "imgui.h"
 #include "physicsObject.h"
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 
 void update(ThING::API& api, FPSCounter& fps){
     std::vector<Circle>* circleCenters = api.getCircleDrawVector();
-    int x, y;
-    static bool changedResolution = false;
-    api.getWindowSize(&x, &y);
-    x /= 2;
-    y /= 2;
+    WindowSize windowSize;
+    api.getWindowSize(&windowSize.width, &windowSize.height);
+    windowSize.width /= 2;
+    windowSize.height /= 2;
     static uint32_t count = 0;
     static std::vector<PhysicsObject> circlePhysics = {};
-    glm::vec2 randomPos = {
-        getRandomNumber((x - dockedSizeX / 2.f) * spawnPoint[0] + dockedSizeX / 2.f, ((x - dockedSizeX / 2.f - spawnRadius) * spawnPoint[0]) + spawnRadius + dockedSizeX / 2.f), 
-        getRandomNumber(y * spawnPoint[1], ((y - spawnRadius) * spawnPoint[1]) + spawnRadius)};
     const float BIGGER_RADIUS = 4;
     const float BIGGER_RADIUS_MINUS = BIGGER_RADIUS - 1;
     const float SMALLER_RADIUS = 2;
+    // ===== CLICK EVENTS START =====
     if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Left)){
-        ImVec2 pos = ImGui::GetMousePos();
-        glm::vec2 poss = {pos.x - (x), pos.y - (y)};
-        if(poss.x > -x + dockedSizeX + 5){
-            glm::vec3 color = {getRandomNumber(0.0f,100.0f)/100.0f, getRandomNumber(0.0f,100.0f)/100.0f, getRandomNumber(0.0f,100.0f)/100.0f};
+        ImVec2 tempPosition = ImGui::GetMousePos();
+        glm::vec2 pos = {tempPosition.x - (windowSize.width), tempPosition.y - (windowSize.height)};
+        if(pos.x > -windowSize.width + dockedSizeX + 5){
+            glm::vec3 circleColor = {getRandomNumber(0.f,1.f), getRandomNumber(0.f,1.f), getRandomNumber(0.f,1.f)};
+            float circleSize =getRandomNumber(SMALLER_RADIUS,BIGGER_RADIUS);
             count++;
-            api.addCircle(std::to_string(count), poss,getRandomNumber(SMALLER_RADIUS,BIGGER_RADIUS), {0,0,1});
+            api.addCircle(std::to_string(count), pos, circleSize, {0,0,1});
             api.getCircle(std::to_string(count)).outlineSize = 5;
-            color = glm::abs(color - 1.f);
             api.getCircle(std::to_string(count)).outlineColor = {0,0, 1, .3};
-            circlePhysics.push_back({poss, poss, {0.f,0.f}});
+            circlePhysics.push_back({pos, pos, {0.f,0.f}});
         }
     }
     if(ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Right)){
-        ImVec2 pos = ImGui::GetMousePos();
-        glm::vec2 p = { pos.x - x, pos.y - y };
+        ImVec2 tempPosition = ImGui::GetMousePos();
+        glm::vec2 p = { tempPosition.x - windowSize.width, tempPosition.y - windowSize.height };
 
         int hit = -1;
         for (int i = 0; i < (int)circleCenters->size(); ++i) {
@@ -60,23 +57,20 @@ void update(ThING::API& api, FPSCounter& fps){
             }
         }
     }
+    // ===== CLICK EVENTS ENDS =====
     const int steps = 4;
     const float sub_dt = simSpeed / (float)steps;
     int circleAmount = api.getCircleAmount();
-    int gridWidth = (x + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
-    int gridHeight = (y + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
+    int gridWidth = (windowSize.width + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
+    int gridHeight = (windowSize.height + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
     static std::vector<std::vector<int>> circleID(gridWidth * gridHeight);
-    // DEAR GOD I NEED TO CLEAN THIS CODE UP, BUT I NEED TO FINISH THIS SOON!!!!
-    static int saveX = x, saveY = y;//YEP I NEED MORE DESCRIPTIVE NAMES
+    static WindowSize lastWindowSize = windowSize;
     static bool firstTime = true;
-    if(saveX != x || saveY != y){
-        changedResolution = true;
-    }
-    if(changedResolution){
+    if(lastWindowSize != windowSize){
         circleID.clear();
         circleID.resize(gridWidth * gridHeight);
-        changedResolution = false;
         firstTime = true;
+        lastWindowSize = windowSize;
     }
     if (firstTime) {
         for (std::vector<int> &reserveVector : circleID) {
@@ -84,24 +78,24 @@ void update(ThING::API& api, FPSCounter& fps){
         }
         firstTime = false;
     }
-
+    for (std::vector<int> &clearID : circleID){
+        clearID.clear();
+    }
+    for (int i = 0; i < circleAmount; i++){//OPTIMIZE THIS LATER
+        int gridX = (((*circleCenters)[i].pos.x + windowSize.width) / 2) / BIGGER_RADIUS;
+        int gridY = (((*circleCenters)[i].pos.y + windowSize.height) / 2) / BIGGER_RADIUS;
+        int index = (gridY * gridWidth) + gridX;
+        if (gridX >= 0 && gridX < gridWidth &&
+            gridY >= 0 && gridY < gridHeight) {
+            circleID[index].push_back(i);
+        }
+    }
     for (int i = steps; i; i--){
-        for (std::vector<int> &clearID : circleID){
-            clearID.clear();
-        }
-        for (int i = 0; i < circleAmount; i++){//OPTIMIZE THIS LATER
-            int gridX = (((*circleCenters)[i].pos.x + x) / 2) / BIGGER_RADIUS;
-            int gridY = (((*circleCenters)[i].pos.y + y) / 2) / BIGGER_RADIUS;
-            int index = (gridY * gridWidth) + gridX;
-            if (gridX >= 0 && gridX < gridWidth &&
-                gridY >= 0 && gridY < gridHeight) {
-                circleID[index].push_back(i);
-            }
-        }
 
         for(PhysicsObject& circle : circlePhysics){
             circle.accelerate({gravity[0], gravity[1]});
         }
+
         collissionCount = 0;
         for(int i = 0; i < circleAmount; i++){
             circlePhysics[i].updatePos(sub_dt);
@@ -130,7 +124,7 @@ void update(ThING::API& api, FPSCounter& fps){
                                 Circle &neighborCircleCenter = (*circleCenters)[neighbor];
                                 Circle &actualCircleCenter = (*circleCenters)[ID];
                                 PhysicsObject &actualCirclePhysics = circlePhysics[ID];
-                                ThING::Collision collision = api.get2ObjCollision(actualCircleCenter, neighborCircleCenter);
+                                ThING::Collision collision = api.getCircleCollision(actualCircleCenter, neighborCircleCenter);
                                 if(collision.hit){
                                     collissionCount++;
                                     actualCirclePhysics.currentPos -= collision.normal * collision.depth * stiffness;
@@ -144,8 +138,8 @@ void update(ThING::API& api, FPSCounter& fps){
         }
         
         for(int i = 0; i < circleAmount; i++){
-            const glm::vec2 minBound{-x + dockedSizeX, -y};
-            const glm::vec2 maxBound{ x, y};
+            const glm::vec2 minBound{-windowSize.width + dockedSizeX, -windowSize.height};
+            const glm::vec2 maxBound{ windowSize.width, windowSize.height};
 
             if (circlePhysics[i].currentPos.x < minBound.x + (*circleCenters)[i].size){ 
                 circlePhysics[i].currentPos.x = minBound.x + (*circleCenters)[i].size;
@@ -160,6 +154,5 @@ void update(ThING::API& api, FPSCounter& fps){
                 circlePhysics[i].currentPos.y = maxBound.y - (*circleCenters)[i].size;
             }
         }
-
     }
 }

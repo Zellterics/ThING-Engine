@@ -47,7 +47,7 @@ void ProtoThiApp::initVulkan() {
     swapChainManager.createSwapChain(physicalDevice, windowManager.getWindow());
     swapChainManager.createImageViews();
     pipelineManager.init(device, swapChainManager.getImageFormat());
-    swapChainManager.createFramebuffers(pipelineManager.getrenderPass());
+    swapChainManager.createFramebuffers(pipelineManager.getRenderPass());
     pipelineManager.createPipelines();
     commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
     bufferManager = BufferManager{device, physicalDevice, commandBufferManager.getCommandPool(), graphicsQueue};
@@ -113,7 +113,7 @@ void ProtoThiApp::drawFrame() {
     VkResult result = vkAcquireNextImageKHR(device, swapChainManager.getSwapChain(), UINT64_MAX, swapChainManager.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getrenderPass());
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getRenderPass());
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
@@ -163,7 +163,7 @@ void ProtoThiApp::drawFrame() {
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || windowManager.resizedFlag) {
         windowManager.resizedFlag = false;
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getrenderPass());
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getRenderPass());
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
     }

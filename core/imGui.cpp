@@ -54,7 +54,7 @@ void ProtoThiApp::initImGui() {
     init_info.ImageCount = static_cast<uint32_t>(swapChainManager.getImages().size());
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.UseDynamicRendering = false;
-    init_info.RenderPass = pipelineManager.getrenderPass();
+    init_info.RenderPass = pipelineManager.getRenderPass();
 
     if (!ImGui_ImplVulkan_Init(&init_info)) {
         throw std::runtime_error("failed to init ImGui Vulkan backend!");

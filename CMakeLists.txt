@@ -51,7 +51,6 @@ file(GLOB EXTRAS_SOURCES
 # Ejecutable
 add_executable(${PROJECT_NAME} 
     main.cpp
-    ${CORE_SOURCES}
     ${EXTRAS_SOURCES}
     ${APP_SOURCES}
     external/imgui/imgui.cpp

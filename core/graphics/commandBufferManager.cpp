@@ -55,7 +55,7 @@ void CommandBufferManager::cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer)
 void CommandBufferManager::cmdBeginRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getrenderPass();
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPass();
     renderPassInfo.framebuffer = frameContext.swapChainManager.getFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
