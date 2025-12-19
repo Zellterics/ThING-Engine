@@ -121,7 +121,7 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
         return;
     }
     if (stagingBuffers[id].bufferSizes[frameIndex] < newBufferSize){
-        stagingBuffers[id].bufferSizes[frameIndex] = newBufferSize;
+        stagingBuffers[id].bufferSizes[frameIndex] = newBufferSize + BUFFER_PADDING;
         if(passedBuffer.buffer){
             vkWaitForFences(device, 1, &inFlightFences, VK_TRUE, UINT64_MAX);
             if (passedBuffer.buffer) {
@@ -147,7 +147,7 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
     }
 
     if (!stagingBuffers[id].isCreated){
-        createBuffer(newBufferSize, 
+        createBuffer(newBufferSize + BUFFER_PADDING, 
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
             stagingBuffers[id].stagingBuffer.buffer, 

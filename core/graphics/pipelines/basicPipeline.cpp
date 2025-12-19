@@ -1,4 +1,6 @@
+#include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
+#include <cstddef>
 
 void PipelineManager::createBasicGraphicsPipeline(){
     auto basicVertShaderCode = readFile("../shaders/basicVert.spv");
@@ -59,6 +61,14 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicMultisampling.sampleShadingEnable = VK_FALSE;
     basicMultisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+    VkPipelineColorBlendAttachmentState idColorBlendAttachment{};
+    idColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT;
+    idColorBlendAttachment.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendAttachmentState outlineColorBlendAttachment{};
+    outlineColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    outlineColorBlendAttachment.blendEnable = VK_FALSE;
+
     VkPipelineColorBlendAttachmentState basicColorBlendAttachment{};
     basicColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     basicColorBlendAttachment.blendEnable = VK_TRUE;
@@ -69,12 +79,18 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     basicColorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
+    std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments = {
+        basicColorBlendAttachment,
+        idColorBlendAttachment,
+        outlineColorBlendAttachment
+    };
+
     VkPipelineColorBlendStateCreateInfo basicColorBlending{};
     basicColorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     basicColorBlending.logicOpEnable = VK_FALSE;
     basicColorBlending.logicOp = VK_LOGIC_OP_COPY;
-    basicColorBlending.attachmentCount = 1;
-    basicColorBlending.pAttachments = &basicColorBlendAttachment;
+    basicColorBlending.attachmentCount = colorBlendAttachments.size();
+    basicColorBlending.pAttachments = colorBlendAttachments.data();
     basicColorBlending.blendConstants[0] = 0.0f;
     basicColorBlending.blendConstants[1] = 0.0f;
     basicColorBlending.blendConstants[2] = 0.0f;
@@ -98,7 +114,7 @@ void PipelineManager::createBasicGraphicsPipeline(){
     VkPipelineLayoutCreateInfo basicPipelineLayoutInfo{};
     basicPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     basicPipelineLayoutInfo.setLayoutCount = 1;
-    basicPipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    basicPipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[PIPELINE_TYPE_POLYGON];
     basicPipelineLayoutInfo.pushConstantRangeCount = 1;
     basicPipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -118,7 +134,7 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicPipelineInfo.pColorBlendState = &basicColorBlending;
     basicPipelineInfo.pDynamicState = &basicDynamicState;
     basicPipelineInfo.layout = pipelineLayouts[PIPELINE_TYPE_POLYGON];
-    basicPipelineInfo.renderPass = renderPass;
+    basicPipelineInfo.renderPass = renderPasses[RENDER_PASS_TYPE_BASE];
     basicPipelineInfo.subpass = 0;
     basicPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -130,4 +146,38 @@ void PipelineManager::createBasicGraphicsPipeline(){
 
     vkDestroyShaderModule(device, basicFragShaderModule, nullptr);
     vkDestroyShaderModule(device, basicVertShaderModule, nullptr);
+}
+
+void PipelineManager::createBaseDescriptorSetLayout(){
+    const size_t BASE_BINDING_AMOUNT = 2;
+
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding idSamplerBinding{};
+    idSamplerBinding.binding = 1;
+    idSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    idSamplerBinding.descriptorCount = 1;
+    idSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    idSamplerBinding.pImmutableSamplers = nullptr;
+
+    std::array<VkDescriptorSetLayoutBinding, BASE_BINDING_AMOUNT> bindings = {
+        uboLayoutBinding,
+        idSamplerBinding
+    };
+
+    bindingCounts[PIPELINE_TYPE_POLYGON] = BASE_BINDING_AMOUNT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayouts[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
 }

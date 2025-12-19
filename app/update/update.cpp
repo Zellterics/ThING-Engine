@@ -32,7 +32,10 @@ void update(ThING::API& api, FPSCounter& fps){
             count++;
             api.addCircle(std::to_string(count), pos, circleSize, {0,0,1});
             api.getCircle(std::to_string(count)).outlineSize = 5;
-            api.getCircle(std::to_string(count)).outlineColor = {0,0, 1, .3};
+            api.getCircle(std::to_string(count)).outlineColor = {1,0, 0, 1};
+            if(speed < 100){//Change later
+                api.getCircle(std::to_string(count)).objectID = count;
+            }
             circlePhysics.push_back({pos, pos, {0.f,0.f}});
         }
     }

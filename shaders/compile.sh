@@ -26,5 +26,16 @@ $GLSLC "$VERT" -o "$VERT_OUT"
 echo "Compilando fragment shader..."
 $GLSLC "$FRAG" -o "$FRAG_OUT"
 
+VERT="$SHADERS_DIR/outline.vert"
+FRAG="$SHADERS_DIR/outline.frag"
+VERT_OUT="$SHADERS_DIR/outlineVert.spv"
+FRAG_OUT="$SHADERS_DIR/outlineFrag.spv"
+
+echo "Compilando vertex shader..."
+$GLSLC "$VERT" -o "$VERT_OUT"
+
+echo "Compilando fragment shader..."
+$GLSLC "$FRAG" -o "$FRAG_OUT"
+
 echo
 echo "✅ Compilación exitosa."

@@ -72,7 +72,6 @@ void ThING::API::mainLoop() {
         // Callbacks
         uiCallback(*this, fps);
         updateCallback(*this, fps);
-        
         //RENDER
         ImGui::Render();
         app.renderFrame();
@@ -198,12 +197,14 @@ void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::
 }
 
 void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale, float windingSign, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
+    static uint32_t objectID = 0;
+    objectID++;
     app.polygons.push_back({makeUniqueId(id), 
         static_cast<uint32_t>(app.vertices.size()), 
         static_cast<uint32_t>(ver.size()),
         static_cast<uint32_t>(app.indices.size()),
         static_cast<uint32_t>(ind.size()),
-        {pos, rotation, scale, 5.f, {1, 1, 0, .1}, windingSign}
+        {pos, rotation, scale, 5.f, {1, 1, 0, .1}, windingSign, objectID}
     });
     app.vertices.reserve(app.vertices.size() + ver.size());
     app.indices.reserve(app.indices.size() + ind.size());

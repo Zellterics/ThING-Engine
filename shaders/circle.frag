@@ -1,29 +1,41 @@
 #version 450
+
 layout(location = 0) in vec2  fragLocal;
 layout(location = 1) in vec3  fragFillColor;
-layout(location = 2) in float fragInnerRadiusN;
-layout(location = 3) in vec4  fragOutlineColor;
-layout(location = 4) in float fragOuterRadiusN;
+layout(location = 2) in float fragInnerRadiusN;   // rFill / rGeom
+layout(location = 3) in vec4  fragOutlineColor;   // rgb=color
+layout(location = 4) in float fragOuterRadiusN;   // rOut  / rGeom
+layout(location = 5) flat in uint fragObjectID;
+layout(location = 6) in float fragOutlinePacked;  // [0..1] thicknessPx/MAX_OUTLINE_PX
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 outColor;        // swapchain (premultiplied)
+layout(location = 1) out uint outObjectID;     // ID buffer
+layout(location = 2) out vec4 outOutlineData;  // rgb=color, a=packedThickness
 
 void main() {
     float d  = length(fragLocal);
     float aa = fwidth(d);
 
-    float rIn  = clamp(fragInnerRadiusN, 0.0, 1.0);
-    float rOut = clamp(fragOuterRadiusN, 0.0, 1.0);
+    float rIn  = fragInnerRadiusN;
+    float rOut = fragOuterRadiusN;
 
-    float insideOuter = 1.0 - smoothstep(rOut - aa, rOut + aa, d);
-    float insideInner = 1.0 - smoothstep(rIn  - aa, rIn  + aa, d);
-    float outlineMask = max(insideOuter - insideInner, 0.0);
+    // Mantener vivo hasta rOut para escribir attachments
+    float covOut = 1.0 - smoothstep(rOut - aa, rOut + aa, d);
+    if (covOut <= 0.0) discard;
 
-    float alphaFill    = insideInner;
-    float alphaOutline = outlineMask * fragOutlineColor.a;
-    float a            = alphaFill + alphaOutline;
+    // Fill AA
+    float covIn = 1.0 - smoothstep(rIn - aa, rIn + aa, d);
 
-    if (a <= 0.0) discard;
+    // Umbral mínimo para que el borde AA no sea “tierra de nadie”
+    const float EPS = 1.0 / 255.0;
 
-    vec3 rgbPremul = fragFillColor * alphaFill + fragOutlineColor.rgb * alphaOutline;
-    outColor = vec4(rgbPremul, a);
+    outColor = vec4(fragFillColor * covIn, covIn);
+
+    // ID existe donde el fill existe (incluye borde AA)
+    outObjectID = (covIn > EPS) ? fragObjectID : 0u;
+
+    // Outline params guardados en el mismo dominio del ID
+    outOutlineData = (covIn > EPS)
+        ? vec4(fragOutlineColor.rgb, fragOutlinePacked)
+        : vec4(0.0);
 }

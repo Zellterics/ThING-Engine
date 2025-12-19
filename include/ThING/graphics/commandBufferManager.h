@@ -16,14 +16,16 @@ public:
     void cleanUpCommandPool(VkDevice& device);
 
     VkCommandPool& getCommandPool(){return commandPool;};
-    VkCommandBuffer& getCommandBufferOnFrame(u_int32_t currentFrame){return commandBuffers[currentFrame];}; // Ocean Monument -1200 2830
+    VkCommandBuffer& getCommandBufferOnFrame(u_int32_t currentFrame){return commandBuffers[currentFrame];};
 private:
     void cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer);
-    void cmdBeginRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
+    void cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
+    void cmdBeginOutlineRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
+    void cmdBeginImGuiRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
     void cmdSetViewPort(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
     void cmdSetScissor(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
     void commandBindPipeline(VkCommandBuffer& commandBuffer, uint32_t currentFrame, const FrameContext& frameContext, PipelineType pipelineType);
-    void cmdInitConfiguration(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
+    void cmdInitRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, RenderPassType type);
     void cmdEndConfiguration(VkCommandBuffer& commandBuffer);
     void recordPolygons(VkCommandBuffer& commandBuffer, const PolygonContext& polygonContext, uint32_t currentFrame, const FrameContext& frameContext);
     void recordCircles(VkCommandBuffer& commandBuffer, const CircleContext& circleContext, uint32_t currentFrame);

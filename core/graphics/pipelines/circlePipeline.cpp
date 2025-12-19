@@ -1,4 +1,8 @@
+#include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
+#include <array>
+#include <cstddef>
+#include <vulkan/vulkan_core.h>
 
 void PipelineManager::createCircleGraphicsPipeline(){
     auto circleVertShaderCode = readFile("../shaders/circleVert.spv");
@@ -67,6 +71,11 @@ void PipelineManager::createCircleGraphicsPipeline(){
     circleMultisampling.sampleShadingEnable = VK_FALSE;
     circleMultisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+    VkPipelineColorBlendAttachmentState idColorBlendAttachment{};
+    idColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT;
+    idColorBlendAttachment.blendEnable = VK_FALSE;
+
+
     VkPipelineColorBlendAttachmentState circleColorBlendAttachment{};
     circleColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     circleColorBlendAttachment.blendEnable = VK_TRUE;
@@ -77,12 +86,23 @@ void PipelineManager::createCircleGraphicsPipeline(){
     circleColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     circleColorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
+    VkPipelineColorBlendAttachmentState outlineColorBlendAttachment{};
+    outlineColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    outlineColorBlendAttachment.blendEnable = VK_FALSE;
+
+    std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments = {
+        circleColorBlendAttachment,
+        idColorBlendAttachment,
+        outlineColorBlendAttachment
+    };
+
+
     VkPipelineColorBlendStateCreateInfo circleColorBlending{};
     circleColorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     circleColorBlending.logicOpEnable = VK_FALSE;
     circleColorBlending.logicOp = VK_LOGIC_OP_COPY;
-    circleColorBlending.attachmentCount = 1;
-    circleColorBlending.pAttachments = &circleColorBlendAttachment;
+    circleColorBlending.attachmentCount = colorBlendAttachments.size();
+    circleColorBlending.pAttachments = colorBlendAttachments.data();
     circleColorBlending.blendConstants[0] = 0.0f;
     circleColorBlending.blendConstants[1] = 0.0f;
     circleColorBlending.blendConstants[2] = 0.0f;
@@ -100,7 +120,7 @@ void PipelineManager::createCircleGraphicsPipeline(){
     VkPipelineLayoutCreateInfo circlePipelineLayoutInfo{};
     circlePipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     circlePipelineLayoutInfo.setLayoutCount = 1;
-    circlePipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    circlePipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[PIPELINE_TYPE_CIRCLE];
     circlePipelineLayoutInfo.pushConstantRangeCount = 0;
     circlePipelineLayoutInfo.pPushConstantRanges = nullptr;
 
@@ -120,7 +140,7 @@ void PipelineManager::createCircleGraphicsPipeline(){
     circlePipelineInfo.pColorBlendState = &circleColorBlending;
     circlePipelineInfo.pDynamicState = &circleDynamicState;
     circlePipelineInfo.layout = pipelineLayouts[PIPELINE_TYPE_CIRCLE];
-    circlePipelineInfo.renderPass = renderPass;
+    circlePipelineInfo.renderPass = renderPasses[RENDER_PASS_TYPE_BASE];
     circlePipelineInfo.subpass = 0;
     circlePipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -132,4 +152,38 @@ void PipelineManager::createCircleGraphicsPipeline(){
 
     vkDestroyShaderModule(device, circleFragShaderModule, nullptr);
     vkDestroyShaderModule(device, circleVertShaderModule, nullptr);
+}
+
+void PipelineManager::createCircleDescriptorSetLayout(){
+    const size_t CIRCLE_BINDING_AMOUNT = 2;
+
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding idSamplerBinding{};
+    idSamplerBinding.binding = 1;
+    idSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    idSamplerBinding.descriptorCount = 1;
+    idSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    idSamplerBinding.pImmutableSamplers = nullptr;
+
+    std::array<VkDescriptorSetLayoutBinding, CIRCLE_BINDING_AMOUNT> bindings = {
+        uboLayoutBinding,
+        idSamplerBinding
+    };
+
+    bindingCounts[PIPELINE_TYPE_CIRCLE] = CIRCLE_BINDING_AMOUNT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayouts[PIPELINE_TYPE_CIRCLE]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
 }

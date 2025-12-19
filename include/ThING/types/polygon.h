@@ -12,6 +12,7 @@ struct Transform {
     float windingSign;
     glm::vec2 scale;
     glm::vec4 outlineColor;
+    uint32_t objectID;
     Transform() = default;
     Transform(const glm::vec2& position, const float& rotation, const glm::vec2& scale){
         this->position = position;
@@ -31,6 +32,16 @@ struct Transform {
         this->drawOutline = 1;
         this->windingSign = windingSign;
     }
+    Transform(const glm::vec2& position, const float& rotation, const glm::vec2& scale, float outlineSize, glm::vec4 outlineColor, float windingSign, uint32_t objectID){
+        this->position = position;
+        this->rotation = rotation;
+        this->scale = scale;
+        this->outlineSize = outlineSize;
+        this->outlineColor = outlineColor;
+        this->drawOutline = 1;
+        this->windingSign = windingSign;
+        this->objectID = objectID;
+    }
 };
 
 struct Polygon{
@@ -41,7 +52,7 @@ struct Polygon{
     uint32_t indexCount;
     Transform transform;
     bool alive;
-    Polygon(){
+    constexpr Polygon(){
         id = "NULL_POLYGON_ID";
         vertexOffset = 0;
         vertexCount = 0;

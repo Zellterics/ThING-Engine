@@ -1,5 +1,9 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <ThING/graphics/commandBufferManager.h>
+#include <cstddef>
+#include <vulkan/vulkan_core.h>
+#include "ThING/consts.h"
+#include "ThING/types/enums.h"
 #include "ThING/types/polygon.h"
 #include "backends/imgui_impl_vulkan.h"
 
@@ -52,17 +56,45 @@ void CommandBufferManager::cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer)
     }
 }
 
-void CommandBufferManager::cmdBeginRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
+void CommandBufferManager::cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPass();
-    renderPassInfo.framebuffer = frameContext.swapChainManager.getFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_BASE];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.getBaseFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
+
+    renderPassInfo.clearValueCount = ATTACHMENT_COUNT;
+    renderPassInfo.pClearValues = frameContext.clearColor;
+    
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void CommandBufferManager::cmdBeginOutlineRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_OUTLINE];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.getOutlineFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
 
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = frameContext.clearColor;
-    
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void CommandBufferManager::cmdBeginImGuiRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_IMGUI];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.getImGuiFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
+
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = frameContext.clearColor;
+
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
@@ -86,25 +118,32 @@ void CommandBufferManager::cmdSetScissor(VkCommandBuffer& commandBuffer, const F
 
 void CommandBufferManager::commandBindPipeline(VkCommandBuffer& commandBuffer, uint32_t currentFrame, const FrameContext& frameContext, PipelineType pipelineType){
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameContext.pipelineManager.getGraphicsPipelines()[pipelineType]);
+
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         frameContext.pipelineManager.getLayouts()[pipelineType],
-        0, 1, &frameContext.pipelineManager.getDescriptorSets()[currentFrame],
+        0, 1, &frameContext.pipelineManager.getDescriptorSets()[pipelineType][currentFrame],
         0, nullptr
     );
+    
 }
 
-void CommandBufferManager::cmdInitConfiguration(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
-    cmdSetBufferBeginInfo(commandBuffer);
-    cmdBeginRenderPass(commandBuffer, frameContext);
+void CommandBufferManager::cmdInitRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, RenderPassType type){
+    if(type == RENDER_PASS_TYPE_BASE){
+        cmdBeginBaseRenderPass(commandBuffer, frameContext);
+    }
+    if(type == RENDER_PASS_TYPE_OUTLINE){
+        cmdBeginOutlineRenderPass(commandBuffer, frameContext);
+    }
+    if(type == RENDER_PASS_TYPE_IMGUI){
+        cmdBeginImGuiRenderPass(commandBuffer, frameContext);
+    }
         cmdSetViewPort(commandBuffer, frameContext);
         cmdSetScissor(commandBuffer, frameContext);
 }
 
 void CommandBufferManager::cmdEndConfiguration(VkCommandBuffer& commandBuffer){
-    vkCmdEndRenderPass(commandBuffer);
-
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -142,7 +181,7 @@ void CommandBufferManager::recordPolygons(VkCommandBuffer& commandBuffer, const 
         vkCmdPushConstants(
             commandBuffer,
             frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0,
             Polygon::PushConstantSize(),
             &pc
@@ -170,14 +209,28 @@ void CommandBufferManager::recordCircles(VkCommandBuffer& commandBuffer, const C
 }
 
 void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const PolygonContext& polygonContext, const CircleContext& circleContext, const FrameContext& frameContext) {
-    cmdInitConfiguration(commandBuffers[currentFrame], frameContext);
+    cmdSetBufferBeginInfo(commandBuffers[currentFrame]);
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_BASE);
         
         commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_POLYGON);
         recordPolygons(commandBuffers[currentFrame], polygonContext, currentFrame, frameContext);
         commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_CIRCLE);
         recordCircles(commandBuffers[currentFrame], circleContext, currentFrame);
 
+    vkCmdEndRenderPass(commandBuffers[currentFrame]);
+
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_OUTLINE);
+
+        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_OUTLINE);
+        vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
+    
+    vkCmdEndRenderPass(commandBuffers[currentFrame]);
+
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_IMGUI);
+
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[currentFrame]);
+
+    vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
     cmdEndConfiguration(commandBuffers[currentFrame]);
 }

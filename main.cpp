@@ -1,5 +1,5 @@
 #include <ThING/core.h>
-#include <ostream>
+#include <iostream>
 #include "ui.h"
 #include "update.h"
 
