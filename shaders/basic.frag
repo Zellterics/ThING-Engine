@@ -1,5 +1,6 @@
 #version 450
 
+layout(location = 0) in vec4 vColor;
 layout(location = 1) flat in uint vObjectID;
 layout(location = 2) in vec2 vLocalPos;
 layout(location = 3) flat in uint vType; // 0 = Polygon, 1 = Circle
