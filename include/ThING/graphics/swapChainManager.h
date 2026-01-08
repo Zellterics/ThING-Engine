@@ -11,7 +11,7 @@ public:
     SwapChainManager() = default;
     SwapChainManager(VkInstance& instance, GLFWwindow* window);
     void createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window);
-    void recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<VkRenderPass> renderPasses);//FIX ORDER OF FUNCTIONS
+    void recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses);//FIX ORDER OF FUNCTIONS
     void createImageViews();
     void createIdImageMemories(VkPhysicalDevice physicalDevice);
     void createOutlineDataImageMemories(VkPhysicalDevice physicalDevice);
@@ -24,24 +24,24 @@ public:
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
     void cleanupSwapChain();
     void cleanUp();
-    void createBaseFramebuffers(VkRenderPass& renderPass);
-    void createOutlineFramebuffers(VkRenderPass& renderPass);
-    void createImGuiFramebuffers(VkRenderPass& renderPass);
+    void createBaseFramebuffers(const VkRenderPass& renderPass);
+    void createOutlineFramebuffers(const VkRenderPass& renderPass);
+    void createImGuiFramebuffers(const VkRenderPass& renderPass);
     void createSyncObjects();
 
     inline void setDevice(VkDevice device) {this->device = device;};
 
     inline VkFormat& getImageFormat() {return imageFormat;};
     inline VkSwapchainKHR getSwapChain() const {return swapChain;}; // IDK if this thing is faster with & but I'll check that later
-    inline VkExtent2D& getExtent() {return swapChainExtent;};
+    inline const VkExtent2D& getExtent() const {return swapChainExtent;};
     inline std::vector<VkImage>& getImages() {return images;};
     inline VkSurfaceKHR& getSurface() {return surface;};
     inline std::vector<VkSemaphore>& getImageAvailableSemaphores() {return imageAvailableSemaphores;};
     inline std::vector<VkSemaphore>& getRenderFinishedSemaphores() {return renderFinishedSemaphores;};
     inline std::vector<VkFence>& getInFlightFences() {return inFlightFences;};
-    inline std::vector<VkFramebuffer>& getBaseFrameBuffers() {return baseFramebuffers;};
-    inline std::vector<VkFramebuffer>& getOutlineFrameBuffers() { return outlineFramebuffers; }
-    inline std::vector<VkFramebuffer>& getImGuiFrameBuffers() { return imGuiFramebuffers; }
+    inline std::span<const VkFramebuffer> getBaseFrameBuffers() const {return baseFramebuffers;};
+    inline std::span<const VkFramebuffer> getOutlineFrameBuffers() const { return outlineFramebuffers; } // CHANGE TO VIEW NAME FOR CONSISNTENCY, Thanks.
+    inline std::span<const VkFramebuffer> getImGuiFrameBuffers() const { return imGuiFramebuffers; }
     inline std::vector<VkImageView>& getIdImageViews() {return  idImageViews;};
     inline std::vector<VkImageView>& getOutlineDataImageViews() {return  outlineDataImageViews;};
     inline std::vector<VkImage>& getIdImages() {return  idImages;};

@@ -5,7 +5,8 @@
 #include <ThING/graphics/pipelineManager.h>
 #include <cstddef>
 #include <cstdint>
-#include <numeric>
+#include <span>
+#include <utility>
 #include <vulkan/vulkan_core.h>
 
 void PipelineManager::init(VkDevice device, VkFormat &format) {
@@ -17,6 +18,8 @@ void PipelineManager::init(VkDevice device, VkFormat &format) {
 
 PipelineManager::PipelineManager(){
     device = VK_NULL_HANDLE;
+    descriptorPool = VK_NULL_HANDLE;
+    idSampler = VK_NULL_HANDLE;
 }
 
 PipelineManager::~PipelineManager(){
@@ -27,18 +30,23 @@ void PipelineManager::cleanUp(){
     if(device == VK_NULL_HANDLE){
         return;
     }
-    for(int i = 0; i < PIPELINE_TYPE_COUNT; i++){
+    for(size_t i = 0; i < toIndex(PipelineType::Count); i++){
         vkDestroyPipeline(device, graphicsPipelines[i], nullptr);
         vkDestroyPipelineLayout(device, pipelineLayouts[i], nullptr);
     }
     
 
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    if (descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+        descriptorPool = VK_NULL_HANDLE;
+    }
     if (idSampler != VK_NULL_HANDLE) {
         vkDestroySampler(device, idSampler, nullptr);
     }
-    //vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr); HOLA PAPU PERDON, LO LAMENTO MUCHO, IMPLEMENTA ESTO PARA EL ARREGLO DE DESCRIPTOR SETS
-    for(int i = 0; i < RENDER_PASS_TYPE_COUNT; i++){
+    for (size_t i = 0; i < toIndex(PipelineType::Count); i++) {
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayouts[i], nullptr);
+    }
+    for(size_t i = 0; i < toIndex(RenderPassType::Count); i++){
         vkDestroyRenderPass(device, renderPasses[i], nullptr);
     }
     device = VK_NULL_HANDLE;
@@ -58,32 +66,47 @@ VkShaderModule PipelineManager::createShaderModule(const std::vector<char>& code
     return shaderModule;
 }
 
+uint32_t PipelineManager::getDescriptorCount(DescriptorType type) const {
+    uint32_t count = 0;
+
+    for (size_t i = 0; i < toIndex(PipelineType::Count); i++) {
+        for (const DescriptorBindingDesc& binding : descriptorLayouts[i]) {
+            if (binding.type == type) {
+                count++;
+            }
+        }
+    }
+
+    return count * MAX_FRAMES_IN_FLIGHT;
+}
+
+
 void PipelineManager::createDescriptorPool(){
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[RENDER_PASS_TYPE_BASE].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[RENDER_PASS_TYPE_BASE].descriptorCount = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_COUNT;
-    poolSizes[RENDER_PASS_TYPE_OUTLINE].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[RENDER_PASS_TYPE_OUTLINE].descriptorCount = MAX_FRAMES_IN_FLIGHT * std::accumulate(bindingCounts.begin(), bindingCounts.end(), 0);
+    std::array<VkDescriptorPoolSize, toIndex(DescriptorType::Count)> poolSizes{};
+    poolSizes[toIndex(DescriptorType::UniformBuffer)].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[toIndex(DescriptorType::UniformBuffer)].descriptorCount = getDescriptorCount(DescriptorType::UniformBuffer);
+    poolSizes[toIndex(DescriptorType::CombinedImageSampler)].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[toIndex(DescriptorType::CombinedImageSampler)].descriptorCount = getDescriptorCount(DescriptorType::CombinedImageSampler);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = poolSizes.size();
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT * PIPELINE_TYPE_COUNT;
+    poolInfo.maxSets = MAX_FRAMES_IN_FLIGHT * toIndex(PipelineType::Count);
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
 
-void PipelineManager::createDescriptorSets(Buffer uniformBuffers[MAX_FRAMES_IN_FLIGHT], SwapChainManager& swapChainManager){
-    for(size_t i = 0; i < PIPELINE_TYPE_COUNT; i++){
+void PipelineManager::createDescriptorSets(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager){
+    for(size_t i = 0; i < toIndex(PipelineType::Count); i++){
         createDescriptorSet(uniformBuffers, swapChainManager, static_cast<PipelineType>(i));
     }
 }
 
-void PipelineManager::createDescriptorSet(Buffer uniformBuffers[MAX_FRAMES_IN_FLIGHT], SwapChainManager& swapChainManager, PipelineType type){
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayouts[type]);
+void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager, PipelineType type){
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayouts[toIndex(type)]);
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -91,11 +114,9 @@ void PipelineManager::createDescriptorSet(Buffer uniformBuffers[MAX_FRAMES_IN_FL
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     allocInfo.pSetLayouts = layouts.data();
 
-    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets[type].data()) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets[toIndex(type)].data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
-
-    uint32_t writesSize = bindingCounts[type];
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
@@ -113,35 +134,46 @@ void PipelineManager::createDescriptorSet(Buffer uniformBuffers[MAX_FRAMES_IN_FL
         outlineImageInfo.imageView = swapChainManager.getOutlineDataImageViews()[i];
         outlineImageInfo.sampler = idSampler;
 
-        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+        std::vector<VkWriteDescriptorSet> descriptorWrites{};
+        descriptorWrites.reserve(descriptorLayouts[toIndex(type)].size());
 
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[type][i];
-        descriptorWrites[0].dstBinding = 0;
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount = 1;
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
 
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[type][i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
-        if(type == PIPELINE_TYPE_OUTLINE){
-            descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[2].dstSet = descriptorSets[type][i];
-            descriptorWrites[2].dstBinding = 2;
-            descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[2].descriptorCount = 1;
-            descriptorWrites[2].pImageInfo = &outlineImageInfo;
+        for(const DescriptorBindingDesc& binding : descriptorLayouts[toIndex(type)]){
+            VkWriteDescriptorSet writes{};
+            writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes.dstSet = descriptorSets[toIndex(type)][i];
+            writes.dstBinding = binding.binding;
+            writes.descriptorCount = 1;
+            switch (binding.type) {
+                case DescriptorType::UniformBuffer:
+                    writes.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                    writes.pBufferInfo = &bufferInfo;
+                    break;
+                case DescriptorType::CombinedImageSampler:
+                    writes.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                    
+                    if(binding.binding == 1){
+                        writes.pImageInfo = &imageInfo; //MAKE IMAGEINFO A VECTOR OR ARRAY TO AVOID HARDCODING THIS THINGS (ARRAY WITH ENUM)
+                    }
+                    else if(binding.binding == 2){
+                        writes.pImageInfo = &outlineImageInfo;
+                    }
+                    else {
+                        std::unreachable();
+                    }
+                    break;
+                case DescriptorType::Count: std::unreachable();
+                default: std::unreachable(); 
+            }
+            descriptorWrites.push_back(writes);
         }
-        vkUpdateDescriptorSets(device, writesSize, descriptorWrites.data(), 0, nullptr);
+
+        vkUpdateDescriptorSets(device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 }
 
 
-void PipelineManager::createDescriptors(Buffer uniformBuffers[MAX_FRAMES_IN_FLIGHT], SwapChainManager& swapChainManager){
+void PipelineManager::createDescriptors(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager){
     createDescriptorPool();
     createIdSampler();
     createDescriptorSets(uniformBuffers,swapChainManager );
@@ -167,16 +199,21 @@ void PipelineManager::createIdSampler() {
 }
 
 void PipelineManager::createDescriptorSetLayouts(){
-    createBaseDescriptorSetLayout();
-    createCircleDescriptorSetLayout();
-    createOutlineDescriptorSetLayout();
+    for(size_t i = 0; i < toIndex(PipelineType::Count); i++){
+        createDescriptorSetLayout(static_cast<PipelineType>(i));
+    }
+    // createBaseDescriptorSetLayout();
+    // createCircleDescriptorSetLayout();
+    // createOutlineDescriptorSetLayout();
 }
 
 void PipelineManager::createPipelines(){
     createDescriptorSetLayouts();
-    createBasicGraphicsPipeline();
-    createCircleGraphicsPipeline();
+    createBaseGraphicsPipeline();
     createOutlineGraphicsPipeline();
+    // createBasicGraphicsPipeline();
+    // createCircleGraphicsPipeline();
+    // createOutlineGraphicsPipeline();
 }
 
 void PipelineManager::createBaseRenderPass(VkFormat& swapChainImageFormat) {
@@ -254,7 +291,7 @@ void PipelineManager::createBaseRenderPass(VkFormat& swapChainImageFormat) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[RENDER_PASS_TYPE_BASE]) != VK_SUCCESS) {
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::Base)]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create render pass!");
     }
 }
@@ -297,7 +334,7 @@ void PipelineManager::createOutlineRenderPass(VkFormat& swapChainImageFormat) {
     renderPassInfo.dependencyCount = 1;
     renderPassInfo.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[RENDER_PASS_TYPE_OUTLINE]) != VK_SUCCESS) {
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::Outline)]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create outline render pass!");
     }
 }
@@ -329,24 +366,22 @@ void PipelineManager::createImGuiRenderPass(VkFormat swapChainImageFormat) {
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[RENDER_PASS_TYPE_IMGUI]) != VK_SUCCESS) {
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::ImGui)]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create ImGui render pass!");
     }
 }
 
-void PipelineManager::updateDescriptorSets(uint32_t currentFrame, Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex){
-    for(size_t i = 0; i < PIPELINE_TYPE_COUNT; i++){
+void PipelineManager::updateDescriptorSets(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex){
+    for(size_t i = 0; i < toIndex(PipelineType::Count); i++){
         updateDescriptorSet(currentFrame, uniformBuffer, swapChainManager, imageIndex, static_cast<PipelineType>(i));
     }
 }
 
-void PipelineManager::updateDescriptorSet(uint32_t currentFrame, Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
+void PipelineManager::updateDescriptorSet(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
     VkDescriptorBufferInfo bufferInfo{};
     bufferInfo.buffer = uniformBuffer.buffer;
     bufferInfo.offset = 0;
     bufferInfo.range = sizeof(UniformBufferObject);
-
-    uint32_t writesSize = bindingCounts[type];
 
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -358,32 +393,41 @@ void PipelineManager::updateDescriptorSet(uint32_t currentFrame, Buffer& uniform
     outlineImageInfo.imageView = swapChainManager.getOutlineDataImageViews()[imageIndex];
     outlineImageInfo.sampler = idSampler;
 
-    std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+    std::vector<VkWriteDescriptorSet> descriptorWrites{};
+    descriptorWrites.reserve(descriptorLayouts[toIndex(type)].size());
 
-    descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[0].dstSet = descriptorSets[type][currentFrame];
-    descriptorWrites[0].dstBinding = 0;
-    descriptorWrites[0].dstArrayElement = 0;
-    descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptorWrites[0].descriptorCount = 1;
-    descriptorWrites[0].pBufferInfo = &bufferInfo;
+    for (const DescriptorBindingDesc& binding : descriptorLayouts[toIndex(type)]) {
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = descriptorSets[toIndex(type)][currentFrame];
+        write.dstBinding = binding.binding;
+        write.dstArrayElement = 0;
+        write.descriptorCount = 1;
 
-    descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrites[1].dstSet = descriptorSets[type][currentFrame];
-    descriptorWrites[1].dstBinding = 1;
-    descriptorWrites[1].dstArrayElement = 0;
-    descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrites[1].descriptorCount = 1;
-    descriptorWrites[1].pImageInfo = &imageInfo;
+        switch (binding.type) {
+            case DescriptorType::UniformBuffer:
+                write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                write.pBufferInfo = &bufferInfo;
+                break;
 
-    if(type == PIPELINE_TYPE_OUTLINE){
-        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = descriptorSets[type][currentFrame];
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pImageInfo = &outlineImageInfo;
+            case DescriptorType::CombinedImageSampler:
+                write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                if (binding.binding == 1) { //IF CREATE FUNCTIONS FIXES THIS, FIX TOO
+                    write.pImageInfo = &imageInfo;
+                } else if (binding.binding == 2) {
+                    write.pImageInfo = &outlineImageInfo;
+                } else {
+                    std::unreachable();
+                }
+                break;
+
+            case DescriptorType::Count:
+            default:
+                std::unreachable();
+        }
+
+        descriptorWrites.push_back(write);
     }
 
-    vkUpdateDescriptorSets(device, writesSize, descriptorWrites.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 }

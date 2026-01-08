@@ -6,9 +6,6 @@ static_assert(sizeof(float) == 4, "Not Compatible with this compiler or configur
 
 #include <ThING/types/vertex.h>
 #include <ThING/types/uniformBufferObject.h>
-#include <ThING/types/quad.h>
-#include <ThING/types/circle.h>
-#include <ThING/types/polygon.h>
 #include <ThING/types/dynamicBuffer.h>
 #include <ThING/types/buffer.h>
 #include <ThING/types/contexts.h>

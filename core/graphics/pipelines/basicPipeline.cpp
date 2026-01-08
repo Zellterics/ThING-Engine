@@ -1,8 +1,8 @@
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
-#include <cstddef>
+#include <span>
 
-void PipelineManager::createBasicGraphicsPipeline(){
+void PipelineManager::createBaseGraphicsPipeline(){
     auto basicVertShaderCode = readFile("../shaders/basicVert.spv");
     auto basicFragShaderCode = readFile("../shaders/basicFrag.spv");
 
@@ -23,16 +23,29 @@ void PipelineManager::createBasicGraphicsPipeline(){
 
     VkPipelineShaderStageCreateInfo basicShaderStages[] = {basicVertShaderStageInfo, basicFragShaderStageInfo};
 
+    auto vertexBinding   = Vertex::getBindingDescription();
+    auto instanceBinding = InstanceData::getBindingDescription();
+
+    std::array<VkVertexInputBindingDescription, 2> bindingDescriptions = {vertexBinding, instanceBinding};
+
+    auto vertexAttrs   = Vertex::getAttributeDescriptions();
+    auto instanceAttrs = InstanceData::getAttributeDescriptions();
+
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.reserve(vertexAttrs.size() + instanceAttrs.size());
+
+    attributeDescriptions.insert(attributeDescriptions.end(), vertexAttrs.begin(), vertexAttrs.end());
+
+    attributeDescriptions.insert(attributeDescriptions.end(), instanceAttrs.begin(), instanceAttrs.end());
+
     VkPipelineVertexInputStateCreateInfo basicVertexInputInfo{};
     basicVertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    auto basicBindingDescription = Vertex::getBindingDescription();
-    auto basicAttributeDescriptions = Vertex::getAttributeDescriptions();
+    basicVertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+    basicVertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
-    basicVertexInputInfo.vertexBindingDescriptionCount = 1;
-    basicVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(basicAttributeDescriptions.size());
-    basicVertexInputInfo.pVertexBindingDescriptions = &basicBindingDescription;
-    basicVertexInputInfo.pVertexAttributeDescriptions = basicAttributeDescriptions.data();
+    basicVertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    basicVertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo basicInputAssembly{};
     basicInputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -105,20 +118,12 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicDynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     basicDynamicState.pDynamicStates = dynamicStates.data();
 
-    // push constants for polygon transforms
-    VkPushConstantRange pushConstantRange{};
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    pushConstantRange.offset = 0;
-    pushConstantRange.size = Polygon::PushConstantSize();
-
     VkPipelineLayoutCreateInfo basicPipelineLayoutInfo{};
     basicPipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     basicPipelineLayoutInfo.setLayoutCount = 1;
-    basicPipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[PIPELINE_TYPE_POLYGON];
-    basicPipelineLayoutInfo.pushConstantRangeCount = 1;
-    basicPipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+    basicPipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[toIndex(PipelineType::Base)];
 
-    if (vkCreatePipelineLayout(device, &basicPipelineLayoutInfo, nullptr, &pipelineLayouts[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(device, &basicPipelineLayoutInfo, nullptr, &pipelineLayouts[toIndex(PipelineType::Base)]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -133,12 +138,12 @@ void PipelineManager::createBasicGraphicsPipeline(){
     basicPipelineInfo.pMultisampleState = &basicMultisampling;
     basicPipelineInfo.pColorBlendState = &basicColorBlending;
     basicPipelineInfo.pDynamicState = &basicDynamicState;
-    basicPipelineInfo.layout = pipelineLayouts[PIPELINE_TYPE_POLYGON];
-    basicPipelineInfo.renderPass = renderPasses[RENDER_PASS_TYPE_BASE];
+    basicPipelineInfo.layout = pipelineLayouts[toIndex(PipelineType::Base)];
+    basicPipelineInfo.renderPass = renderPasses[toIndex(RenderPassType::Base)];
     basicPipelineInfo.subpass = 0;
     basicPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &basicPipelineInfo, nullptr, &graphicsPipelines[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &basicPipelineInfo, nullptr, &graphicsPipelines[toIndex(PipelineType::Base)]) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
@@ -148,36 +153,46 @@ void PipelineManager::createBasicGraphicsPipeline(){
     vkDestroyShaderModule(device, basicVertShaderModule, nullptr);
 }
 
-void PipelineManager::createBaseDescriptorSetLayout(){
-    const size_t BASE_BINDING_AMOUNT = 2;
+void PipelineManager::createDescriptorSetLayout(PipelineType type) {
+    const  std::span<const DescriptorBindingDesc>& bindingsDesc = descriptorLayouts[toIndex(type)];
 
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+    std::vector<VkDescriptorSetLayoutBinding> bindings;
+    bindings.reserve(bindingsDesc.size());
 
-    VkDescriptorSetLayoutBinding idSamplerBinding{};
-    idSamplerBinding.binding = 1;
-    idSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    idSamplerBinding.descriptorCount = 1;
-    idSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    idSamplerBinding.pImmutableSamplers = nullptr;
+    for (const DescriptorBindingDesc& desc : bindingsDesc) {
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding = desc.binding;
+        binding.descriptorCount = 1;
+        binding.stageFlags =
+            (desc.type == DescriptorType::UniformBuffer)
+                ? VK_SHADER_STAGE_VERTEX_BIT
+                : VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, BASE_BINDING_AMOUNT> bindings = {
-        uboLayoutBinding,
-        idSamplerBinding
-    };
+        switch (desc.type) {
+            case DescriptorType::UniformBuffer:
+                binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                break;
+            case DescriptorType::CombinedImageSampler:
+                binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                break;
+            default:
+                std::unreachable();
+        }
 
-    bindingCounts[PIPELINE_TYPE_POLYGON] = BASE_BINDING_AMOUNT;
+        bindings.push_back(binding);
+    }
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
     layoutInfo.pBindings = bindings.data();
 
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayouts[PIPELINE_TYPE_POLYGON]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
+    if (vkCreateDescriptorSetLayout(
+            device,
+            &layoutInfo,
+            nullptr,
+            &descriptorSetLayouts[toIndex(type)]
+        ) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout");
     }
 }

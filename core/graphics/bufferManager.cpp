@@ -1,4 +1,6 @@
 #include "ThING/consts.h"
+#include "ThING/types/enums.h"
+#include "ThING/types/renderData.h"
 #include "ThING/types/vertex.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/fwd.hpp"
@@ -7,6 +9,7 @@
 #include <cstring>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
@@ -97,6 +100,62 @@ void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
+const Buffer& BufferManager::viewBuffer(BufferType type, size_t index) const{
+    switch (type) {
+        case BufferType::Vertex:        return vertexBuffers[index];
+        case BufferType::Index:         return indexBuffers[index];
+        case BufferType::Instance:      return instanceBuffers[index];
+        case BufferType::QuadVertex:    return quadVertexBuffer;
+        case BufferType::QuadIndex:     return quadIndexBuffer;
+        case BufferType::Uniform:       return uniformBuffers[index];
+        case BufferType::Indirect:      return indirectBuffers[index];
+        case BufferType::Count:         std::unreachable();
+    }
+    std::unreachable();
+}
+
+std::span<const Buffer, MAX_FRAMES_IN_FLIGHT> BufferManager::viewBuffers(BufferType type) const{
+    switch (type) {
+        case BufferType::Vertex:        return vertexBuffers;
+        case BufferType::Index:         return indexBuffers;
+        case BufferType::Instance:      return instanceBuffers;
+        case BufferType::QuadVertex:    std::unreachable();
+        case BufferType::QuadIndex:     std::unreachable();
+        case BufferType::Uniform:       return uniformBuffers;
+        case BufferType::Indirect:      return indirectBuffers;
+        case BufferType::Count:         std::unreachable();
+    }
+    std::unreachable();
+}
+
+Buffer& BufferManager::getBuffer(BufferType type, size_t index){
+    switch (type) {
+        case BufferType::Vertex:        return vertexBuffers[index];
+        case BufferType::Index:         return indexBuffers[index];
+        case BufferType::Instance:      return instanceBuffers[index];
+        case BufferType::QuadVertex:    return quadVertexBuffer;
+        case BufferType::QuadIndex:     return quadIndexBuffer;
+        case BufferType::Uniform:       return uniformBuffers[index];
+        case BufferType::Indirect:      return indirectBuffers[index];
+        case BufferType::Count:         std::unreachable();
+    }
+    std::unreachable();
+}
+
+std::array<Buffer, MAX_FRAMES_IN_FLIGHT>& BufferManager::getBuffers(BufferType type){
+    switch (type) {
+        case BufferType::Vertex:        return vertexBuffers;
+        case BufferType::Index:         return indexBuffers;
+        case BufferType::Instance:      return instanceBuffers;
+        case BufferType::QuadVertex:    std::unreachable();
+        case BufferType::QuadIndex:     std::unreachable();
+        case BufferType::Uniform:       return uniformBuffers;
+        case BufferType::Indirect:      return indirectBuffers;
+        case BufferType::Count:         std::unreachable();
+    }
+    std::unreachable();
+}
+
 uint32_t BufferManager::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -110,13 +169,14 @@ uint32_t BufferManager::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlag
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-void BufferManager::udpateBuffer(Buffer& passedBuffer, 
-    VkFence& inFlightFences, 
+void BufferManager::updateBuffer(VkFence& inFlightFences, 
     const void* data, 
     VkDeviceSize newBufferSize, 
     uint32_t frameIndex,
     VkBufferUsageFlags usage,
-    size_t id){
+    BufferType type){
+    Buffer& passedBuffer = getBuffer(type, frameIndex);
+    size_t id = toIndex(type);
     if(newBufferSize == 0){
         return;
     }
@@ -163,25 +223,6 @@ void BufferManager::udpateBuffer(Buffer& passedBuffer,
     copyBuffer(stagingBuffers[id].stagingBuffer.buffer, passedBuffer.buffer, newBufferSize);
 }
 
-void BufferManager::updateCustomBuffers(std::vector<Vertex>& vertices, 
-        std::vector<uint16_t>& indices, 
-        std::vector<Circle>& circleCenters, 
-        std::vector<VkFence>& inFlightFences,
-        uint32_t frameIndex){
-    if(stagingBuffers.size() < 3){
-        stagingBuffers.emplace_back();
-        stagingBuffers.emplace_back();
-        stagingBuffers.emplace_back();
-        stagingBuffers[0].stagingBuffer.device = device;
-        stagingBuffers[1].stagingBuffer.device = device;
-        stagingBuffers[2].stagingBuffer.device = device;
-    }
-    
-    udpateBuffer(vertexBuffers[frameIndex], inFlightFences[frameIndex], vertices.data(), vertices.size() * sizeof(Vertex), frameIndex, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0); //vertex
-    udpateBuffer(indexBuffers[frameIndex], inFlightFences[frameIndex], indices.data(), indices.size() * sizeof(uint16_t), frameIndex, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 1);// index
-    udpateBuffer(circleBuffers[frameIndex], inFlightFences[frameIndex], circleCenters.data(), circleCenters.size() * sizeof(Circle), frameIndex, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,2);// circle
-}
-
 void BufferManager::createUniformBuffers(){
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
@@ -191,7 +232,7 @@ void BufferManager::createUniformBuffers(){
     }
 }
 
-void BufferManager::updateUniformBuffers(VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex){
+void BufferManager::updateUniformBuffers(const VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex){
     const VkDeviceSize bufferSize = sizeof(UniformBufferObject);
     static void* mappedData[MAX_FRAMES_IN_FLIGHT] = {nullptr};
 
@@ -219,52 +260,95 @@ void BufferManager::updateUniformBuffers(VkExtent2D& swapChainExtent, float zoom
     memcpy(mappedData[frameIndex], &ubo, (size_t) bufferSize);
 }
 
-void BufferManager::createCustomBuffers(std::vector<Vertex>& vertices, 
-        std::vector<uint16_t>& indices, 
-        std::vector<Quad>& quadVertices,
-        std::vector<uint16_t>& quadIndices,
-        std::vector<Circle>& circleCenters){
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        vertexBuffers[i].device = device;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffers[i].buffer, vertexBuffers[i].memory);
-        uploadBuffer(bufferSize, &vertexBuffers[i].buffer, vertices.data());
-    }
+void BufferManager::createIndirectBuffers() {
+    VkDeviceSize maxCommands = sizeof(VkDrawIndexedIndirectCommand) * MAX_INDIRECT_COMMANDS;
 
-    bufferSize = sizeof(indices[0]) * indices.size();
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        indexBuffers[i].device = device;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffers[i].buffer, indexBuffers[i].memory);
-        uploadBuffer(bufferSize, &indexBuffers[i].buffer, indices.data());
-    }
-
-    bufferSize = sizeof(quadVertices[0]) * quadVertices.size();
-    quadBuffer.device = device;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, quadBuffer.buffer, quadBuffer.memory);
-    uploadBuffer(bufferSize, &quadBuffer.buffer, quadVertices.data());
-
-    bufferSize = sizeof(quadIndices[0]) * quadIndices.size();
-    quadIndexBuffer.device = device;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, quadIndexBuffer.buffer, quadIndexBuffer.memory);
-    uploadBuffer(bufferSize, &quadIndexBuffer.buffer, quadIndices.data());
-
-    bufferSize = sizeof(circleCenters[0]) * circleCenters.size();
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        circleBuffers[i].device = device;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, circleBuffers[i].buffer, circleBuffers[i].memory);
-        uploadBuffer(bufferSize, &circleBuffers[i].buffer, circleCenters.data());
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        indirectBuffers[i].device = device;
+        VkBufferUsageFlags flags = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        VkMemoryPropertyFlags propertys = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        createBuffer(maxCommands, flags, propertys, indirectBuffers[i].buffer, indirectBuffers[i].memory);
     }
 }
 
+void BufferManager::updateIndirectBuffers(std::span<const VkDrawIndexedIndirectCommand> commands, std::vector<VkFence>& inFlightFences, uint32_t frameIndex) {
+    VkDeviceSize size = commands.size() * sizeof(VkDrawIndexedIndirectCommand);
+
+    if (size == 0) return;
+    VkBufferUsageFlags flags = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    updateBuffer(inFlightFences[frameIndex], commands.data(), size, frameIndex, flags, BufferType::Indirect);
+}
+
+void BufferManager::createCustomBuffers(){
+    VkBufferUsageFlags vertexFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkBufferUsageFlags indexFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkBufferUsageFlags instanceFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        vertexBuffers[i].device = device;
+        createBuffer(BUFFER_PADDING, vertexFlags, memoryFlags, vertexBuffers[i].buffer, vertexBuffers[i].memory);
+    }
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        indexBuffers[i].device = device;
+        createBuffer(BUFFER_PADDING, indexFlags, memoryFlags, indexBuffers[i].buffer, indexBuffers[i].memory);
+    }
+
+    quadVertexBuffer.device = device;
+    createBuffer(sizeof(Vertex) * QUAD_VERTICES.size(), vertexFlags, memoryFlags, quadVertexBuffer.buffer, quadVertexBuffer.memory);
+
+    quadIndexBuffer.device = device;
+    createBuffer(sizeof(uint16_t) * QUAD_INDICES.size(), indexFlags, memoryFlags, quadIndexBuffer.buffer, quadIndexBuffer.memory);
+    uploadBuffer(sizeof(Vertex) * QUAD_VERTICES.size(), &quadVertexBuffer.buffer, (void*)QUAD_VERTICES.data());
+    uploadBuffer(sizeof(uint16_t) * QUAD_INDICES.size(), &quadIndexBuffer.buffer, (void*)QUAD_INDICES.data());
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        instanceBuffers[i].device = device;
+        createBuffer(BUFFER_PADDING, instanceFlags, memoryFlags, instanceBuffers[i].buffer, instanceBuffers[i].memory);
+    }
+}
+
+
+void BufferManager::updateCustomBuffers(std::vector<Vertex>& vertices, 
+        std::vector<uint16_t>& indices, 
+        std::vector<InstanceData>& instanceData, 
+        std::vector<VkFence>& inFlightFences,
+        uint32_t frameIndex){
+    if (stagingBuffers.size() < toIndex(BufferType::Count)) {
+        stagingBuffers.resize(toIndex(BufferType::Count)); // CHANGE IF I HAVE TIME, SOME BUFFERS DON'T NEED STAGING BUT IT WORKS
+        for (auto& sb : stagingBuffers) {
+            sb.stagingBuffer.device = device;
+        }
+    }
+
+
+    VkDeviceSize vertexSize = vertices.size() * sizeof(Vertex);
+    VkDeviceSize indexSize = indices.size() * sizeof(uint16_t);
+    VkDeviceSize instanceSize = instanceData.size() * sizeof(InstanceData);
+
+    VkBufferUsageFlags vertexFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    VkBufferUsageFlags indexFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    VkBufferUsageFlags instanceFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+    updateBuffer(inFlightFences[frameIndex], vertices.data(), vertexSize, frameIndex, vertexFlags, BufferType::Vertex);
+    updateBuffer(inFlightFences[frameIndex], indices.data(), indexSize, frameIndex, indexFlags, BufferType::Index);
+    updateBuffer(inFlightFences[frameIndex], instanceData.data(), instanceSize, frameIndex, instanceFlags, BufferType::Instance);
+}
+
 void BufferManager::cleanUp(){
-    quadBuffer.destroy();
+    quadVertexBuffer.destroy();
     quadIndexBuffer.destroy();
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vertexBuffers[i].destroy();
         indexBuffers[i].destroy();
         uniformBuffers[i].destroy();
-        circleBuffers[i].destroy();
+        instanceBuffers[i].destroy();
+        indirectBuffers[i].destroy();
     }
 
     for (auto& dyn : stagingBuffers) {

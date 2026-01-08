@@ -1,10 +1,12 @@
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
+#include <cstdint>
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
 #include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
+#include "ThING/types/renderData.h"
 #include "imgui.h"
 
 #include "backends/imgui_impl_glfw.h"
@@ -16,17 +18,11 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
     offset = {0, 0};
     clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // STANDAR = BLACK
     currentFrame = 0;
-
-    quadVertices = {
-        {{-1.f, -1.f}, {-1.0f, -1.0f}},
-        {{1.f, -1.f}, {1.0f, -1.0f}},
-        {{1.f, 1.f}, {1.0f, 1.0f}},
-        {{-1.f, 1.f}, {-1.0f, 1.0f}}
-    };
-    quadIndices = {0,1,2,2,3,0};
+    worldData.circleCount = 0;
+    worldData.instances = {};
+    worldData.meshes = {};
+    worldData.polygonOffset = 0;
 }
-
-
 
 void ProtoThiApp::initVulkan() {
     createInstance();
@@ -40,14 +36,15 @@ void ProtoThiApp::initVulkan() {
     swapChainManager.createImageViews();
     swapChainManager.createIdAttachments(physicalDevice);
     pipelineManager.init(device, swapChainManager.getImageFormat());
-    swapChainManager.createBaseFramebuffers(pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_BASE]);
-    swapChainManager.createOutlineFramebuffers(pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_OUTLINE]);
-    swapChainManager.createImGuiFramebuffers(pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_IMGUI]);
+    swapChainManager.createBaseFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::Base)]); // MAKE ONLY ONE FUNCTION FOR THIS 3
+    swapChainManager.createOutlineFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::Outline)]);
+    swapChainManager.createImGuiFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::ImGui)]);
     pipelineManager.createPipelines();
     bufferManager = BufferManager{device, physicalDevice, commandBufferManager.getCommandPool(), graphicsQueue};
-    bufferManager.createCustomBuffers(vertices, indices, quadVertices, quadIndices, circleCenters);
+    bufferManager.createCustomBuffers();
+    bufferManager.createIndirectBuffers();
     bufferManager.createUniformBuffers();
-    pipelineManager.createDescriptors(bufferManager.getUniformBuffers(), swapChainManager);
+    pipelineManager.createDescriptors(bufferManager.viewBuffers(BufferType::Uniform), swapChainManager);
     commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
     swapChainManager.createSyncObjects();
 }
@@ -74,15 +71,6 @@ void ProtoThiApp::cleanup() {
     }
 
     bufferManager.cleanUp();
-    // while(!graphicsPipelines.empty()){
-    //     vkDestroyPipeline(device, graphicsPipelines.back(), nullptr);
-    //     graphicsPipelines.pop_back();
-    // }
-
-    // while(!pipelineLayouts.empty()){
-    //     vkDestroyPipelineLayout(device, pipelineLayouts.back(), nullptr);
-    //     pipelineLayouts.pop_back();
-    // }
 
     commandBufferManager.cleanUpCommandPool(device);
 
@@ -98,6 +86,24 @@ void ProtoThiApp::cleanup() {
     
 
     glfwTerminate();
+}
+
+void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, std::span<MeshData> meshes){
+    worldData.instances.clear();
+    
+    worldData.circleCount = circleInstances.size();
+    worldData.polygonOffset = worldData.circleCount;
+
+    worldData.instances.reserve(circleInstances.size() + polygonInstances.size());
+
+    worldData.instances.insert(worldData.instances.end(), circleInstances.begin(), circleInstances.end());
+    worldData.instances.insert(worldData.instances.end(), polygonInstances.begin(), polygonInstances.end());
+
+    worldData.meshes.assign(meshes.begin(), meshes.end());
+    assert(worldData.meshes.size() == polygonInstances.size());
+    for(int i = 0; i < polygonInstances.size(); i++){
+        worldData.meshes[i].instanceIndex = worldData.polygonOffset + i;
+    }
 }
 
 void ProtoThiApp::drawFrame() {
@@ -116,12 +122,12 @@ void ProtoThiApp::drawFrame() {
     vkResetFences(device, 1, &swapChainManager.getInFlightFences()[currentFrame]);
 
     vkResetCommandBuffer(commandBufferManager.getCommandBufferOnFrame(currentFrame), /*VkCommandBufferResetFlagBits*/ 0);
-    PolygonContext polygonContext = {polygons, bufferManager.getVertexBuffers(), bufferManager.getIndexBuffers()};
-    CircleContext circleContext = {circleCenters, quadIndices, bufferManager.getQuadBuffer(), bufferManager.getQuadIndexBuffer(), bufferManager.getCircleBuffers()};
-    FrameContext frameContext{imageIndex, &clearColor, pipelineManager, swapChainManager};
-    pipelineManager.updateDescriptorSets(currentFrame, bufferManager.getUniformBuffers()[currentFrame], swapChainManager, imageIndex);
 
-    commandBufferManager.recordCommandBuffer(currentFrame, polygonContext, circleContext, frameContext);
+    RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount};
+    FrameContext frameContext{imageIndex, &clearColor, pipelineManager, swapChainManager};
+    pipelineManager.updateDescriptorSets(currentFrame, bufferManager.viewBuffer(BufferType::Uniform, currentFrame), swapChainManager, imageIndex);
+
+    commandBufferManager.recordCommandBuffer(currentFrame, renderContext, frameContext);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

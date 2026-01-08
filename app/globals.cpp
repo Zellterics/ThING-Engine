@@ -9,3 +9,5 @@ int dockedSizeX;
 float simSpeed = .25;
 unsigned int collissionCount = 0;
 float stiffness = .25f;
+int simWidth = 0;
+int simHeight = 0;

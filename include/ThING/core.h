@@ -1,6 +1,8 @@
 #pragma once
 
+#include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
+#include <span>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -53,15 +55,16 @@ private:
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
 
-    std::vector<Quad> quadVertices;
-    std::vector<Circle> circleCenters;
-    std::vector<uint16_t> quadIndices;
+    WorldData worldData;
+    uint32_t indirectCommandCount;
+    /* I really don't like this being here, it is calculated once per frame in mainLoop, but since I need this info I need
+        a variable here... I think I really need that renderer class more every day, but I really want to get this donde right now
+          so that's just life, move it later to a renderer class later maybe... */
 
     // Api Variables
     float zoom;
     glm::vec2 offset;
     VkClearValue clearColor;
-    std::vector<Polygon> polygons;
 
     void initVulkan();
     void initImGui();
@@ -69,6 +72,8 @@ private:
     
     void renderFrame();
     void cleanup();
+
+    void recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, std::span<MeshData> meshes);
     
     void createInstance();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);

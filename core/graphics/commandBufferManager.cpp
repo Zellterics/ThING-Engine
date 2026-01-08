@@ -1,10 +1,13 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <ThING/graphics/commandBufferManager.h>
-#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
 #include <vulkan/vulkan_core.h>
-#include "ThING/consts.h"
+#include "ThING/graphics/bufferManager.h"
+#include "ThING/graphics/pipelineManager.h"
+#include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
-#include "ThING/types/polygon.h"
+#include "ThING/types/renderData.h"
 #include "backends/imgui_impl_vulkan.h"
 
 CommandBufferManager::CommandBufferManager() {
@@ -59,7 +62,7 @@ void CommandBufferManager::cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer)
 void CommandBufferManager::cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_BASE];
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::Base)];
     renderPassInfo.framebuffer = frameContext.swapChainManager.getBaseFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
@@ -73,7 +76,7 @@ void CommandBufferManager::cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer
 void CommandBufferManager::cmdBeginOutlineRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_OUTLINE];
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::Outline)];
     renderPassInfo.framebuffer = frameContext.swapChainManager.getOutlineFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
@@ -87,7 +90,7 @@ void CommandBufferManager::cmdBeginOutlineRenderPass(VkCommandBuffer& commandBuf
 void CommandBufferManager::cmdBeginImGuiRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[RENDER_PASS_TYPE_IMGUI];
+    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::ImGui)];
     renderPassInfo.framebuffer = frameContext.swapChainManager.getImGuiFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
@@ -116,27 +119,27 @@ void CommandBufferManager::cmdSetScissor(VkCommandBuffer& commandBuffer, const F
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
-void CommandBufferManager::commandBindPipeline(VkCommandBuffer& commandBuffer, uint32_t currentFrame, const FrameContext& frameContext, PipelineType pipelineType){
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameContext.pipelineManager.getGraphicsPipelines()[pipelineType]);
+void CommandBufferManager::commandBindPipeline(VkCommandBuffer& commandBuffer, uint32_t currentFrame, const FrameContext& frameContext, PipelineType type){
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameContext.pipelineManager.getGraphicsPipelines()[toIndex(type)]);
 
     vkCmdBindDescriptorSets(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        frameContext.pipelineManager.getLayouts()[pipelineType],
-        0, 1, &frameContext.pipelineManager.getDescriptorSets()[pipelineType][currentFrame],
+        frameContext.pipelineManager.getLayouts()[toIndex(type)],
+        0, 1, &frameContext.pipelineManager.getDescriptorSets()[toIndex(type)][currentFrame],
         0, nullptr
     );
     
 }
 
 void CommandBufferManager::cmdInitRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, RenderPassType type){
-    if(type == RENDER_PASS_TYPE_BASE){
+    if(type == RenderPassType::Base){
         cmdBeginBaseRenderPass(commandBuffer, frameContext);
     }
-    if(type == RENDER_PASS_TYPE_OUTLINE){
+    if(type == RenderPassType::Outline){
         cmdBeginOutlineRenderPass(commandBuffer, frameContext);
     }
-    if(type == RENDER_PASS_TYPE_IMGUI){
+    if(type == RenderPassType::ImGui){
         cmdBeginImGuiRenderPass(commandBuffer, frameContext);
     }
         cmdSetViewPort(commandBuffer, frameContext);
@@ -149,84 +152,67 @@ void CommandBufferManager::cmdEndConfiguration(VkCommandBuffer& commandBuffer){
     }
 }
 
-void CommandBufferManager::recordPolygons(VkCommandBuffer& commandBuffer, const PolygonContext& polygonContext, uint32_t currentFrame, const FrameContext& frameContext){
-    VkBuffer vb = polygonContext.vertexBuffers[currentFrame].buffer;
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb, offsets);
-    
-    VkBuffer ib = polygonContext.indexBuffers[currentFrame].buffer;
-    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
-    for (const auto& poly : polygonContext.polygons) {
-        if (!poly.alive) continue;
-        Transform pc = poly.transform;
-        pc.drawOutline = 1.f;
-        vkCmdPushConstants(
-            commandBuffer,
-            frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            Polygon::PushConstantSize(),
-            &pc
-        );
-
-        vkCmdDrawIndexed(
-            commandBuffer,
-            poly.indexCount,
-            1,
-            poly.indexOffset,
-            poly.vertexOffset,
-            0
-        );
-        pc.drawOutline = 0.f;
-        vkCmdPushConstants(
-            commandBuffer,
-            frameContext.pipelineManager.getLayouts()[PIPELINE_TYPE_POLYGON],
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            Polygon::PushConstantSize(),
-            &pc
-        );
-
-        vkCmdDrawIndexed(
-            commandBuffer,
-            poly.indexCount,
-            1,
-            poly.indexOffset,
-            poly.vertexOffset,
-            0
-        );
-    }
-}
-
-void CommandBufferManager::recordCircles(VkCommandBuffer& commandBuffer, const CircleContext& circleContext, uint32_t currentFrame){
-    VkBuffer vb[] = {circleContext.quadBuffer.buffer, circleContext.circleBuffers[currentFrame].buffer};
+void CommandBufferManager::recordInstanceDraw(VkCommandBuffer& commandBuffer, const RenderContext& renderContext, const DrawBatch& drawBatch){
+    VkBuffer vb[] = {
+        renderContext.bufferManager.viewBuffer(drawBatch.vertexBuffer, 0).buffer, 
+        renderContext.bufferManager.viewBuffer(BufferType::Instance, renderContext.currentFrame).buffer
+    };
     VkDeviceSize offsets[] = {0,0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 2, vb, offsets);
     
-    VkBuffer ib = circleContext.quadIndexBuffer.buffer;
+    VkBuffer ib = renderContext.bufferManager.viewBuffer(drawBatch.indexBuffer, 0).buffer;
     vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(circleContext.quadIndices.size()), circleContext.circleCenters.size(), 0, 0, 0);
+
+    vkCmdDrawIndexed(commandBuffer, drawBatch.indexCount, drawBatch.instanceCount, drawBatch.indexOffset, 0, drawBatch.instanceOffset);
 }
 
-void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const PolygonContext& polygonContext, const CircleContext& circleContext, const FrameContext& frameContext) {
-    cmdSetBufferBeginInfo(commandBuffers[currentFrame]);
-    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_BASE);
+void CommandBufferManager::recordIndirectDraw(VkCommandBuffer& commandBuffer, const RenderContext& renderContext, uint32_t commandCount){
+    VkBuffer vb[] = {
+        renderContext.bufferManager.viewBuffer(BufferType::Vertex, 0).buffer,
+        renderContext.bufferManager.viewBuffer(BufferType::Instance, renderContext.currentFrame).buffer
+    };
+
+    VkDeviceSize offsets[] = {0, 0};
+
+    vkCmdBindVertexBuffers(commandBuffer, 0, 2, vb, offsets);
+
+    VkBuffer ib = renderContext.bufferManager.viewBuffer(BufferType::Index, 0).buffer;
+
+    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
+
+    VkBuffer indirectBuffer = renderContext.bufferManager.viewBuffer(BufferType::Indirect, renderContext.currentFrame).buffer;
+
+    vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer, 0, commandCount, sizeof(VkDrawIndexedIndirectCommand));
+}
+
+
+void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const RenderContext& renderContext, const FrameContext& frameContext) {
+    DrawBatch quadBatch = {
+        .vertexBuffer = BufferType::QuadVertex,
+        .indexBuffer = BufferType::QuadIndex,
+        .indexCount = QUAD_INDICES.size(),
+        .indexOffset = 0,
+        .instanceCount = static_cast<uint32_t>(renderContext.worldData.circleCount),
+        .instanceOffset = 0,
         
-        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_POLYGON);
-        recordPolygons(commandBuffers[currentFrame], polygonContext, currentFrame, frameContext);
-        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_CIRCLE);
-        recordCircles(commandBuffers[currentFrame], circleContext, currentFrame);
+    };
+    cmdSetBufferBeginInfo(commandBuffers[currentFrame]);
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Base);
+        
+        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PipelineType::Base);
+        recordInstanceDraw(commandBuffers[currentFrame], renderContext, quadBatch);
+        recordIndirectDraw(commandBuffers[currentFrame], renderContext, renderContext.indirectCmdCount);
 
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
-    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_OUTLINE);
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Outline);
 
-        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PIPELINE_TYPE_OUTLINE);
+        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PipelineType::Outline);
         vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
     
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
-    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RENDER_PASS_TYPE_IMGUI);
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::ImGui);
 
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[currentFrame]);
 

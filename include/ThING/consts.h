@@ -1,6 +1,5 @@
 #pragma once
-#include "ThING/types/circle.h"
-#include "ThING/types/polygon.h"
+#include "ThING/types/renderData.h"
 #include "ThING/types/vertex.h"
 #include <cstddef>
 #include <cstdint>
@@ -15,11 +14,10 @@ inline constexpr int32_t MAX_INT_32 = std::numeric_limits<int32_t>::max();
 inline constexpr float MAX_FLOAT = std::numeric_limits<float>::max();
 
 //Polygon.h
-inline constexpr const char* NULL_POLYGON_ID = "NULL_POLYGON_ID";
-inline constexpr const char* NULL_CIRCLE_ID = "NULL_CIRCLE_ID";
-inline constexpr Circle NULL_CIRCLE{{MAX_FLOAT, MAX_FLOAT}, MAX_FLOAT, {MAX_FLOAT,MAX_FLOAT,MAX_FLOAT}};
-inline const Polygon NULL_POLYGON{};
+inline constexpr const char* NULL_POLYGON_ID = "NULL_POLYGON_ID"; //REMOVE LATER IF NOT USED IN CORE
+inline constexpr const char* NULL_CIRCLE_ID = "NULL_CIRCLE_ID"; //REMOVE LATER IF NOT USED IN CORE
 
 //BufferManager.cpp
 
-inline constexpr size_t BUFFER_PADDING = static_cast<size_t>(sizeof(Vertex)) * static_cast<size_t>(sizeof(Circle));
+inline constexpr size_t BUFFER_PADDING = static_cast<size_t>(sizeof(Vertex)) * static_cast<size_t>(sizeof(InstanceData));
+inline constexpr size_t MAX_INDIRECT_COMMANDS = 4096; // If you want more polygons just type more doesn't really matter

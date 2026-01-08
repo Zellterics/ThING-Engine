@@ -10,6 +10,8 @@ extern int dockedSizeX;
 extern float simSpeed;
 extern unsigned int collissionCount;
 extern float stiffness;
+extern int simWidth;
+extern int simHeight;
 
 struct WindowSize{
     int width;

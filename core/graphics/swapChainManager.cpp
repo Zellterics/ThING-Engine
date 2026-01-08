@@ -65,7 +65,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwin
     swapChainExtent = extent;
 }
 
-void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<VkRenderPass> renderPasses) {
+void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses) {
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
@@ -79,9 +79,9 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
     createSwapChain(physicalDevice, window);
     createImageViews();
     createIdAttachments(physicalDevice);
-    createBaseFramebuffers(renderPasses[RENDER_PASS_TYPE_BASE]);
-    createOutlineFramebuffers(renderPasses[RENDER_PASS_TYPE_OUTLINE]);
-    createImGuiFramebuffers(renderPasses[RENDER_PASS_TYPE_IMGUI]);
+    createBaseFramebuffers(renderPasses[toIndex(RenderPassType::Base)]);
+    createOutlineFramebuffers(renderPasses[toIndex(RenderPassType::Outline)]);
+    createImGuiFramebuffers(renderPasses[toIndex(RenderPassType::ImGui)]);
 
     if (renderFinishedSemaphores.size() != images.size()) {
         for (auto s : renderFinishedSemaphores) vkDestroySemaphore(device, s, nullptr);
@@ -391,7 +391,7 @@ VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& ca
     }
 }
 
-void SwapChainManager::createBaseFramebuffers(VkRenderPass& renderPass) {
+void SwapChainManager::createBaseFramebuffers(const VkRenderPass& renderPass) {
     baseFramebuffers.resize(imageViews.size());
     idImageViews.resize(imageViews.size()); //MAYBE ERASE
 
@@ -417,7 +417,7 @@ void SwapChainManager::createBaseFramebuffers(VkRenderPass& renderPass) {
     }
 }
 
-void SwapChainManager::createOutlineFramebuffers(VkRenderPass& renderPass) {
+void SwapChainManager::createOutlineFramebuffers(const VkRenderPass& renderPass) {
     outlineFramebuffers.resize(imageViews.size());
     outlineDataImageViews.resize(imageViews.size());
 
@@ -439,7 +439,7 @@ void SwapChainManager::createOutlineFramebuffers(VkRenderPass& renderPass) {
     }
 }
 
-void SwapChainManager::createImGuiFramebuffers(VkRenderPass& renderPass) {
+void SwapChainManager::createImGuiFramebuffers(const VkRenderPass& renderPass) {
     imGuiFramebuffers.resize(imageViews.size());
     for (size_t i = 0; i < imageViews.size(); i++) {
         VkImageView attachments[] = { imageViews[i] };

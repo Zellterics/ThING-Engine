@@ -15,15 +15,6 @@ $GLSLC "$VERT" -o "$VERT_OUT"
 echo "Compilando fragment shader..."
 $GLSLC "$FRAG" -o "$FRAG_OUT"
 
-VERT="$SHADERS_DIR/circle.vert"
-FRAG="$SHADERS_DIR/circle.frag"
-VERT_OUT="$SHADERS_DIR/circleVert.spv"
-FRAG_OUT="$SHADERS_DIR/circleFrag.spv"
-
-echo "Compilando vertex shader..."
-$GLSLC "$VERT" -o "$VERT_OUT"
-
-echo "Compilando fragment shader..."
 $GLSLC "$FRAG" -o "$FRAG_OUT"
 
 VERT="$SHADERS_DIR/outline.vert"

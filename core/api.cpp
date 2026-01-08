@@ -1,9 +1,5 @@
-#include "ThING/consts.h"
-#include "ThING/types/circle.h"
-#include "ThING/types/collission.h"
-#include "ThING/types/polygon.h"
-#include "glm/exponential.hpp"
-#include "glm/ext/matrix_transform.hpp"
+#include "ThING/types/enums.h"
+#include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "miniaudio.h"
@@ -12,10 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <iostream>
-#include <string>
-#include <string_view>
 #include <sys/stat.h>
+#include <utility>
 #include <vector>
 #define MINIAUDIO_IMPLEMENTATION
 #include <ThING/api.h>
@@ -32,6 +26,13 @@ ThING::API::API() : app(){
     }
     updateCallback = nullptr;
     uiCallback = nullptr;
+
+    circleInstances = {};
+    polygonInstances = {};
+    polygonMeshes = {};
+
+    circleFreeList = {};
+    polygonFreeList = {};
 }
 
 ThING::API::~API(){
@@ -74,15 +75,39 @@ void ThING::API::mainLoop() {
         updateCallback(*this, fps);
         //RENDER
         ImGui::Render();
+        app.recordWorldData(circleInstances, polygonInstances, polygonMeshes);
         app.renderFrame();
     }
     vkDeviceWaitIdle(app.device);
 }
 
+Entity ThING::API::addCircle(InstanceData&& instance){
+    Entity e;
+    if(circleFreeList.empty()){
+        circleInstances.push_back(std::move(instance));
+        e = {static_cast<uint32_t>(circleInstances.size() - 1), InstanceType::Circle};
+        return e;
+    } else {
+        e = circleFreeList.back();
+        circleFreeList.pop_back();
+        circleInstances[e.index] = std::move(instance);
+        return e;
+    }
+};
 
 //PUBLIC
-int ThING::API::getCircleAmount(){
-    return app.circleCenters.size();
+
+uint32_t ThING::API::getInstanceCount(InstanceType type){
+    switch (type) {
+        case InstanceType::Polygon:
+            return polygonInstances.size();
+
+        case InstanceType::Circle:
+            return circleInstances.size();
+
+        case InstanceType::Count: std::unreachable();
+        default: std::unreachable();
+    }
 }
 
 void ThING::API::getWindowSize(int* x, int* y){
@@ -90,47 +115,29 @@ void ThING::API::getWindowSize(int* x, int* y){
     return;
 }
 
-void ThING::API::addCircle(std::string id, glm::vec2 pos, float size, glm::vec3 color){
-    app.circleCenters.push_back({pos, size, color});
-    std::string uniqueId = makeUniqueId(id);
-    circleIds[uniqueId] = app.circleCenters.size() - 1;
-    circleIdsByIndex.push_back(uniqueId);
+Entity ThING::API::addCircle(glm::vec2 pos, float size, glm::vec4 color){
+    InstanceData tempInstance;
+    tempInstance.position = pos;
+    tempInstance.scale = {size, size};
+    tempInstance.type = InstanceType::Circle;
+    tempInstance.color = color;
+    return addCircle(std::move(tempInstance));
 }
 
-Circle& ThING::API::getCircle(const std::string& id){
-    int i = 0;
-    if(circleIds.contains(id)){
-        return app.circleCenters[circleIds[id]];
+std::span<InstanceData> ThING::API::getInstanceVector(InstanceType type){
+    switch (type) {
+        case InstanceType::Polygon: return polygonInstances;
+        case InstanceType::Circle: return circleInstances;
+        case InstanceType::Count: std::unreachable();
+        default: std::unreachable();
     }
-    static Circle nullCircle = NULL_CIRCLE;
-    return nullCircle;
 }
 
-bool ThING::API::deleteCircle(const std::string& id){
-    if(!circleIds.contains(id)){
-        return false;
-    }
-    if(circleIds[id] == app.circleCenters.size() - 1){
-        app.circleCenters.pop_back();
-        circleIdsByIndex.pop_back();
-        circleIds.erase(id);
-        return true;
-    }
-    app.circleCenters[circleIds[id]] = std::move(app.circleCenters.back());
-    app.circleCenters.pop_back();
-    circleIdsByIndex[circleIds[id]] = std::move(circleIdsByIndex.back());
-    circleIdsByIndex.pop_back();
-    circleIds[circleIdsByIndex[circleIds[id]]] = circleIds[id];
-    circleIds.erase(id);
-    return true;
-}
-
-std::vector<Circle>* ThING::API::getCircleDrawVector(){
-    return &app.circleCenters;
-}
-
-void ThING::API::setZoomAndOffset(float zoom, glm::vec2 offset){
+void ThING::API::setZoom(float zoom){
     app.zoom = zoom;
+}
+
+void ThING::API::setOffset(glm::vec2 offset){
     app.offset = offset;
 }
 
@@ -141,195 +148,145 @@ void ThING::API::setBackgroundColor(glm::vec4 color){
     app.clearColor.color.float32[3] = color.w;
 }
 
-glm::mat4 ThING::API::build2DTransform(glm::vec2 pos, float rotation, glm::vec2 scale) {
-    glm::mat4 t(1.0f);
-    t = glm::translate(t, glm::vec3(pos, 0.0f));
-    t = glm::rotate(t, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
-    t = glm::scale(t, glm::vec3(scale, 1.0f));
-    return t;
-}
+Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
+    Entity e;
 
+    InstanceData tempInstance;
+    tempInstance.position = pos;
+    tempInstance.scale = scale;
+    tempInstance.type = InstanceType::Polygon;
+    tempInstance.color = color;
 
-void ThING::API::setPolygonTransform(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale){
-    for(Polygon& pol : app.polygons){
-        if(pol.id == id){
-            pol.transform = {pos, rotation, scale};
-        }
+    if(polygonFreeList.empty()){
+        polygonInstances.push_back(std::move(tempInstance));
+        e = {static_cast<uint32_t>(polygonInstances.size()) - 1, InstanceType::Polygon};
+    } else {
+        e = polygonFreeList.back();
+        polygonFreeList.pop_back();
+        polygonInstances[e.index] = std::move(tempInstance);
     }
-}
 
-std::string ThING::API::makeUniqueId(const std::string& baseId) {
-    std::string uniqueId = baseId;
-    int counter = 1;
-
-    bool exists = true;
-    while (exists) {
-        exists = false;
-        if(polygonIds.contains(uniqueId)){
-            exists = true;
-            uniqueId = baseId + std::to_string(counter++);
-        }
-        if(exists){
-            continue;
-        }
-        if(circleIds.contains(uniqueId)){
-            exists = true;
-            uniqueId = baseId + std::to_string(counter++);
-        }
+    MeshData tempMesh = {
+        to_u32(app.vertices.size()),
+        to_u32(ver.size()),
+        to_u32(app.indices.size()),
+        to_u32(ind.size()),
+        e.index
+    };
+    if(polygonMeshes.size() > e.index){
+        polygonMeshes[e.index] = std::move(tempMesh);
+    } else {
+        polygonMeshes.push_back(std::move(tempMesh));
     }
-    return uniqueId;
-}
-
-
-void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
-    app.polygons.push_back({makeUniqueId(id), 
-        static_cast<uint32_t>(app.vertices.size()), 
-        static_cast<uint32_t>(ver.size()),
-        static_cast<uint32_t>(app.indices.size()),
-        static_cast<uint32_t>(ind.size()),
-        {pos, rotation, scale}
-    });
-    app.vertices.reserve(app.vertices.size() + ver.size());
-    app.indices.reserve(app.indices.size() + ind.size());
+    // app.vertices.reserve(app.vertices.size() + ver.size()); Probably slower than letting the vector grow on it's own
+    // app.indices.reserve(app.indices.size() + ind.size());
     app.vertices.insert(app.vertices.end(), ver.begin(), ver.end());
     app.indices.insert(app.indices.end(), ind.begin(), ind.end());
-    polygonIds[app.polygons.back().id] = app.polygons.size() - 1;
+    return e;
 }
 
-void ThING::API::addPolygon(std::string id, glm::vec2 pos, float rotation, glm::vec2 scale, float windingSign, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
-    static uint32_t objectID = 0;
-    objectID++;
-    app.polygons.push_back({makeUniqueId(id), 
-        static_cast<uint32_t>(app.vertices.size()), 
-        static_cast<uint32_t>(ver.size()),
-        static_cast<uint32_t>(app.indices.size()),
-        static_cast<uint32_t>(ind.size()),
-        {pos, rotation, scale, 5.f, {1, 1, 0, .1}, windingSign, objectID}
-    });
-    app.vertices.reserve(app.vertices.size() + ver.size());
-    app.indices.reserve(app.indices.size() + ind.size());
-    app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));
-    app.indices.insert(app.indices.end(), std::make_move_iterator(ind.begin()), std::make_move_iterator(ind.end()));
-    polygonIds[app.polygons.back().id] = app.polygons.size() - 1;
-    std::cout << app.vertices.size() << std::endl;
-    std::cout << app.indices.size() << std::endl;
-}
+Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
+    Entity e;
 
-void ThING::API::addPolygon(Polygon&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
-    app.polygons.push_back({polygon.id, 
-        static_cast<uint32_t>(app.vertices.size()), 
-        static_cast<uint32_t>(ver.size()),
-        static_cast<uint32_t>(app.indices.size()),
-        static_cast<uint32_t>(ind.size()),
-        {polygon.transform.position, polygon.transform.rotation, polygon.transform.scale}
-    });
-    app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));
-    app.indices.insert(app.indices.end(), std::make_move_iterator(ind.begin()), std::make_move_iterator(ind.end()));
-    polygonIds[app.polygons.back().id] = app.polygons.size() - 1;
-}
+    InstanceData tempInstance;
+    tempInstance.position = pos;
+    tempInstance.scale = scale;
+    tempInstance.type = InstanceType::Polygon;
+    tempInstance.color = color;
 
-Polygon& ThING::API::getPolygon(const std::string& id){
-    if(polygonIds.contains(id)){
-        Polygon& pol = app.polygons[polygonIds[id]];
-        if(pol.id == id)
-            if(pol.alive)
-                return pol;
+    if(polygonFreeList.empty()){
+        polygonInstances.push_back(std::move(tempInstance));
+        e = {static_cast<uint32_t>(polygonInstances.size()) - 1, InstanceType::Polygon};
+    } else {
+        e = polygonFreeList.back();
+        polygonFreeList.pop_back();
+        polygonInstances[e.index] = std::move(tempInstance);
     }
-    static Polygon nullPolygon{};
-    return nullPolygon;
+
+    MeshData tempMesh = {
+        to_u32(app.vertices.size()),
+        to_u32(ver.size()),
+        to_u32(app.indices.size()),
+        to_u32(ind.size()),
+        e.index
+    };
+    if(polygonMeshes.size() > e.index){
+        polygonMeshes[e.index] = std::move(tempMesh);
+    } else {
+        polygonMeshes.push_back(std::move(tempMesh));
+    }
+    app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));
+    app.indices.insert(app.indices.end(), std::make_move_iterator(ind.begin()), std::make_move_iterator(ind.end()));
+    return e;
 }
 
-bool ThING::API::deletePolygon(const std::string& id){
-    if(!polygonIds.contains(id)){
+bool ThING::API::exists(const Entity e){
+    if(e == INVALID_ENTITY){
         return false;
     }
-    app.polygons[polygonIds[id]].alive = false;
-    static int deathPolygons = 0;
-    deathPolygons++;
-    
-    if((float)deathPolygons/app.polygons.size() > .25f){
-        deathPolygons = 0;
-        cleanPolygonsList();
-    }
-    return true;
-}
-
-void ThING::API::cleanPolygonsList() {
-    size_t aliveCount = 0;
-    size_t reserveVerticesSize = 0, reserveIndicesSize = 0;
-    
-    for (size_t i = 0; i < app.polygons.size(); i++) {
-        const Polygon& pol = app.polygons[i];
-        if (!pol.alive) 
-            continue;
-        aliveCount++;
-        reserveVerticesSize += pol.vertexCount;
-        reserveIndicesSize += pol.indexCount;
-    }
-    if (aliveCount == 0) {
-        app.polygons.clear();
-        app.vertices.clear();
-        app.indices.clear();
-        polygonIds.clear();
-        return;
-    }
-    std::vector<Polygon> oldPolygons = std::move(app.polygons);
-    std::vector<uint16_t> oldIndices = std::move(app.indices);
-    std::vector<Vertex> oldVertices = std::move(app.vertices);
-    app.polygons.clear();
-    app.polygons.reserve(aliveCount);
-    app.indices.clear();
-    app.indices.reserve(reserveIndicesSize);
-    app.vertices.clear();
-    app.vertices.reserve(reserveVerticesSize);
-    for(Polygon& pol : oldPolygons){
-        if(!pol.alive)
-            continue;
-        std::vector<Vertex> ver(oldVertices.begin() + pol.vertexOffset, oldVertices.begin() + pol.vertexOffset + pol.vertexCount);
-        std::vector<uint16_t> ind(oldIndices.begin() + pol.indexOffset, oldIndices.begin() + pol.indexOffset + pol.indexCount);
-        addPolygon(std::move(pol), std::move(ver), std::move(ind));
+    switch (e.type) {
+        case InstanceType::Polygon:
+            if(e.index >= polygonInstances.size()){
+                return false;
+            }
+            if(!polygonInstances[e.index].alive){
+                return false;
+            }
+            return true;
+        case InstanceType::Circle:
+            if(e.index >= circleInstances.size()){
+                return false;
+            }
+            if(!circleInstances[e.index].alive){
+                return false;
+            }
+            return true;
+        case InstanceType::Count: std::unreachable();
+        default: std::unreachable();
     }
 }
 
-bool ThING::API::exists(const Polygon& polygon){
-    if(polygon.alive)
-        return true;
-    return false;
+bool ThING::API::deleteInstance(const Entity e){
+    if(!exists(e)){
+        return false;
+    }
+    switch (e.type) {
+        case InstanceType::Polygon:
+            polygonInstances[e.index].alive = false;
+            polygonFreeList.push_back(e);
+            return true;
+        case InstanceType::Circle:
+            circleInstances[e.index].alive = false;
+            circleFreeList.push_back(e);
+            return true;
+        case InstanceType::Count: std::unreachable();
+        default: std::unreachable();
+    }
 }
 
-bool ThING::API::exists(const Circle& circle){
-    if(circle != NULL_CIRCLE)
-        return true;
-    return false;
-}
-static float polygonWindingSign(const std::vector<Vertex>& verts) {
-    if (verts.size() < 3) return 1.0f;
-    long double a = 0.0L;
-    for (size_t i = 0, j = verts.size() - 1; i < verts.size(); j = i++) {
-        a += (long double)verts[j].pos.x * (long double)verts[i].pos.y
-           - (long double)verts[i].pos.x * (long double)verts[j].pos.y;
+InstanceData& ThING::API::getInstance(const Entity e){
+    switch (e.type) {
+        case InstanceType::Polygon: 
+            assert(e.index < polygonInstances.size() && "Invalid Entity passed to getInstance"); 
+            return polygonInstances[e.index];
+        case InstanceType::Circle: 
+            assert(e.index < circleInstances.size() && "Invalid Entity passed to getInstance"); 
+            return circleInstances[e.index];
+        case InstanceType::Count: std::unreachable();
+        default: std::unreachable();
     }
-    return (a >= 0.0L) ? 1.0f : -1.0f;
 }
-bool ThING::API::addRegularPol(std::string id, size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec3 color){
+
+Entity ThING::API::addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color){
     if(sides < 3){
-        return false;
+        return INVALID_ENTITY;
     }
     std::vector<Vertex> vertices;
     vertices.reserve(sides);
     for(int i = 0; i < sides; i++){
         glm::vec2 vtx = {sin((6.28 * i / (float)sides)), cos((6.28 * i / (float)sides))};
         vertices.push_back({vtx, {glm::normalize(vtx)}});
-        vertices[i].color = color;
     }
-    vertices[0].prev = vertices[sides - 1].pos;
-    vertices[0].next = vertices[1].pos;
-    for(int i = 1; i < sides - 1; i++){
-        vertices[i].prev = vertices[i - 1].pos;
-        vertices[i].next = vertices[i + 1].pos;
-    }
-    vertices[sides - 1].prev = vertices[sides - 2].pos;
-    vertices[sides - 1].next = vertices[0].pos;
     std::vector<uint16_t> indices;
     indices.reserve((sides - 2) * 3);
     for(int i = 0; i < sides - 2;){
@@ -338,71 +295,5 @@ bool ThING::API::addRegularPol(std::string id, size_t sides, glm::vec2 pos, glm:
         indices.push_back(++i);
         i--;
     }
-    float wSign = polygonWindingSign(vertices);
-    float scaleSign = (scale.x * scale.y >= 0.0f) ? 1.0f : -1.0f;
-    float windingSign = wSign * scaleSign;
-    addPolygon(id, pos, 0.f, scale, windingSign, std::move(vertices), std::move(indices));
-    return true;
-}
-
-std::span<const std::string_view> ThING::API::viewPolygonIdList(){
-    static std::vector<std::string_view> idList;
-    idList.clear();
-    idList.reserve(app.polygons.size());
-    for(const Polygon& pol : app.polygons){
-        if(pol.alive)
-            idList.emplace_back(pol.id);
-    }
-    return idList;
-}
-
-bool ThING::API::playAudio(const std::string& soundFile){
-    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), nullptr) != MA_SUCCESS){
-        return false;
-    }
-    return true;
-}
-
-bool ThING::API::playAudio(const std::string& soundFile, uint8_t volume){
-    //Can be optimized by replaying instead of reloading, not high performance impact right now to bother
-    //Do if you/I need to play a lot of sounds at high speeds
-    static bool first = true;
-    static ma_sound_group playVolumeGroup{};
-    static uint8_t vol = volume;
-    
-    
-    if(first){
-        ma_sound_group_init(&audioEngine, 0, nullptr, &playVolumeGroup);
-        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
-
-        first = false;
-    }
-    if(vol != volume){
-        vol = volume;
-        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
-    }
-    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), &playVolumeGroup) != MA_SUCCESS){
-        return false;
-    }
-    return true;
-}
-
-ThING::Collision ThING::API::getCircleCollision(const Circle& circle1, const Circle& circle2){
-    ThING::Collision hit;
-    const glm::vec2 collision = circle2.pos - circle1.pos;
-    const float summedSize = circle1.size + circle2.size;
-    const float dist2 = glm::dot(collision, collision);
-    if(dist2 >= summedSize * summedSize)
-        return {};
-
-    if(dist2 <= 1e-3f)
-        return {};
-
-    
-    const float invDist = glm::inversesqrt(dist2);
-    const float dist = dist2 * invDist;
-    hit.hit = true;
-    hit.normal = collision * invDist;
-    hit.depth = summedSize - dist;
-    return hit;
+    return addPolygon(pos, color, scale, std::move(vertices), std::move(indices));
 }
