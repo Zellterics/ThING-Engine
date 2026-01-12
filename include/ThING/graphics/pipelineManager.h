@@ -22,29 +22,46 @@ class PipelineManager{
 public:
     PipelineManager();
     ~PipelineManager();
-    void init(VkDevice device, VkFormat &format);
+    void init(VkDevice device, const VkFormat &format);
+
+    PipelineManager(const PipelineManager&) = delete;
+    PipelineManager& operator=(const PipelineManager&) = delete;
+
+    PipelineManager(PipelineManager&&) = delete;
+    PipelineManager& operator=(PipelineManager&&) = delete;
+
+
     void createPipelines();
     void createDescriptors(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager);
-    void createBaseRenderPass(VkFormat& swapChainImageFormat);
-    void createOutlineRenderPass(VkFormat& swapChainImageFormat);
+    void createDescriptorSets(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager);
+    void updateDescriptorSets(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex);
 
     void cleanUp();
 
-    inline std::span<const VkRenderPass> getRenderPasses() const {return renderPasses;};
-    inline std::span<const VkPipelineLayout> getLayouts() const {return pipelineLayouts;};
-    inline std::span<const VkPipeline> getGraphicsPipelines() const {return graphicsPipelines;};
-    inline std::span<const std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>> getDescriptorSets() const {return descriptorSets;};
-    void createDescriptorSets(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager);
-    void updateDescriptorSets(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex);
+    inline std::span<const VkRenderPass> viewRenderPasses() const {return renderPasses;}
+    inline std::span<const VkPipelineLayout> viewLayouts() const {return pipelineLayouts;}
+    inline std::span<const VkPipeline> viewPipelines() const {return pipelines;}
+    inline std::span<const std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>> viewDescriptorSets() const {return descriptorSets;}
+    inline std::span<const VkDescriptorSet> viewJFADescriptorSets() const {return JFADescriptorSets;}
+    
 private:
     void createDescriptorSetLayouts();
 
     uint32_t getDescriptorCount(DescriptorType type) const;
     void createDescriptorSetLayout(PipelineType type);
-    void createBaseGraphicsPipeline();
-    void createOutlineGraphicsPipeline();
 
-    void createImGuiRenderPass(VkFormat swapChainImageFormat);
+    void createBaseGraphicsPipeline();
+    void createPostGraphicsPipeline();
+    void createJFAPipeline();
+
+
+    void createBaseRenderPass(const VkFormat& swapChainImageFormat);
+    void createPostRenderPass(const VkFormat& swapChainImageFormat);
+    void createImGuiRenderPass(const VkFormat& swapChainImageFormat);
+
+    void createJFADescriptorSets(SwapChainManager& swapChainManager);
+    void writeJFADescriptorSet( uint32_t frameIndex, const RenderImage& ping, const RenderImage& pong, const RenderImage& idImage, const RenderImage& seedImage);
+
     void createDescriptorSet(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager, PipelineType type);
     void updateDescriptorSet(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type);
 
@@ -56,30 +73,39 @@ private:
 
     std::array<VkRenderPass, toIndex(RenderPassType::Count)> renderPasses;
     std::array<VkPipelineLayout, toIndex(PipelineType::Count)> pipelineLayouts;
-    std::array<VkPipeline, toIndex(PipelineType::Count)> graphicsPipelines;
+    std::array<VkPipeline, toIndex(PipelineType::Count)> pipelines;
     std::array<VkDescriptorSetLayout, toIndex(PipelineType::Count)> descriptorSetLayouts;
-    std::array<std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>, toIndex(PipelineType::Count)> descriptorSets;
+    std::array<std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>, GRAPHICS_PIPELINE_COUNT> descriptorSets; // Change to graphicsDescriptorSets use PipeLineType::Count and new computePipelineCount Const
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> JFADescriptorSets;
     VkDescriptorPool descriptorPool;
     VkDevice device;
     VkSampler idSampler;
 
     inline static constexpr DescriptorBindingDesc baseBindings[] = {
-        { DescriptorType::UniformBuffer,        0 },
-        { DescriptorType::CombinedImageSampler, 1 }
+        {DescriptorType::UniformBuffer, 0, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT},
+        {DescriptorType::CombinedImageSampler, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+        {DescriptorType::CombinedImageSampler, 2, VK_SHADER_STAGE_FRAGMENT_BIT}
     };
 
-    inline static constexpr DescriptorBindingDesc outlineBindings[] = {
-        { DescriptorType::UniformBuffer,        0 },
-        { DescriptorType::CombinedImageSampler, 1 },
-        { DescriptorType::CombinedImageSampler, 2 }
+    inline static constexpr DescriptorBindingDesc postBindings[] = {
+        {DescriptorType::UniformBuffer, 0, VK_SHADER_STAGE_FRAGMENT_BIT},
+        {DescriptorType::CombinedImageSampler, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
+        {DescriptorType::CombinedImageSampler, 2, VK_SHADER_STAGE_FRAGMENT_BIT}
     };
+
+    inline static constexpr DescriptorBindingDesc JFABindings[] = {
+        {DescriptorType::StorageImage, 0, VK_SHADER_STAGE_COMPUTE_BIT},
+        {DescriptorType::StorageImage, 1, VK_SHADER_STAGE_COMPUTE_BIT},
+        {DescriptorType::StorageImage, 2, VK_SHADER_STAGE_COMPUTE_BIT},
+        {DescriptorType::StorageImage, 3, VK_SHADER_STAGE_COMPUTE_BIT}
+    };
+
 
     inline static constexpr std::array<std::span<const DescriptorBindingDesc>, toIndex(PipelineType::Count)> descriptorLayouts = {
         baseBindings,
-        outlineBindings
+        postBindings,
+        JFABindings,
     };
-
-    //std::array<size_t, toIndex(PipelineType::Count)> bindingCounts = {0,0,0}; //Update to automatically know CLEAN LATER
 
     inline static std::vector<char> readFile(const std::string& filename) { //CHANGE TO A FILE MANAGER OR SOMETHING
         std::string base = osd::getExecutableDir();

@@ -6,13 +6,13 @@ void ProtoThiApp::renderFrame(){
     std::vector<VkDrawIndexedIndirectCommand> indirectCommands;
 
     for (const MeshData& mesh : worldData.meshes) {
-        if (worldData.instances[mesh.instanceIndex].alive == false) continue; // GET MESH DATA ALIGNED WITH INSTANCE INDEX Pretty Please
+        if (worldData.instances[mesh.instanceIndex].alive == false) continue; // ALWAYS GET MESH DATA ALIGNED WITH INSTANCE INDEX Pretty Please
 
         indirectCommands.push_back({
-            .indexCount    = mesh.indexCount,
+            .indexCount = mesh.indexCount,
             .instanceCount = 1,
-            .firstIndex    = mesh.indexOffset,
-            .vertexOffset  = static_cast<int32_t>(mesh.vertexOffset),
+            .firstIndex = mesh.indexOffset,
+            .vertexOffset = static_cast<int32_t>(mesh.vertexOffset),
             .firstInstance = mesh.instanceIndex
         });
     }

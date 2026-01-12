@@ -1,13 +1,18 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <ThING/graphics/commandBufferManager.h>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <vulkan/vulkan_core.h>
+#include "ThING/consts.h"
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
 #include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
+#include "ThING/types/renderImage.h"
 #include "backends/imgui_impl_vulkan.h"
 
 CommandBufferManager::CommandBufferManager() {
@@ -62,41 +67,32 @@ void CommandBufferManager::cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer)
 void CommandBufferManager::cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::Base)];
-    renderPassInfo.framebuffer = frameContext.swapChainManager.getBaseFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderPass = frameContext.pipelineManager.viewRenderPasses()[toIndex(RenderPassType::Base)];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.viewBaseFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
-
-    renderPassInfo.clearValueCount = ATTACHMENT_COUNT;
-    renderPassInfo.pClearValues = frameContext.clearColor;
+    static std::array<VkClearValue, 3> clearColor = {
+        frameContext.clearColor,
+        {{0.0f, 0.0f, 0.0f, 0.0f}}, // make initial variable an array later, don't have static here
+        {{0.0f, 0.0f, 0.0f, 0.0f}}
+    };
+    clearColor[0] = frameContext.clearColor;
+    renderPassInfo.clearValueCount = 3;
+    renderPassInfo.pClearValues = clearColor.data();
     
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-}
-
-void CommandBufferManager::cmdBeginOutlineRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::Outline)];
-    renderPassInfo.framebuffer = frameContext.swapChainManager.getOutlineFrameBuffers()[frameContext.imageIndex];
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
-
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = frameContext.clearColor;
-
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void CommandBufferManager::cmdBeginImGuiRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = frameContext.pipelineManager.getRenderPasses()[toIndex(RenderPassType::ImGui)];
-    renderPassInfo.framebuffer = frameContext.swapChainManager.getImGuiFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderPass = frameContext.pipelineManager.viewRenderPasses()[toIndex(RenderPassType::ImGui)];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.viewImGuiFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
 
     renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = frameContext.clearColor;
+    renderPassInfo.pClearValues = &frameContext.clearColor;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -120,30 +116,50 @@ void CommandBufferManager::cmdSetScissor(VkCommandBuffer& commandBuffer, const F
 }
 
 void CommandBufferManager::commandBindPipeline(VkCommandBuffer& commandBuffer, uint32_t currentFrame, const FrameContext& frameContext, PipelineType type){
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, frameContext.pipelineManager.getGraphicsPipelines()[toIndex(type)]);
+    VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    vkCmdBindPipeline(commandBuffer, bindPoint, frameContext.pipelineManager.viewPipelines()[toIndex(type)]);
 
     vkCmdBindDescriptorSets(
         commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        frameContext.pipelineManager.getLayouts()[toIndex(type)],
-        0, 1, &frameContext.pipelineManager.getDescriptorSets()[toIndex(type)][currentFrame],
+        bindPoint,
+        frameContext.pipelineManager.viewLayouts()[toIndex(type)],
+        0, 1, &frameContext.pipelineManager.viewDescriptorSets()[toIndex(type)][currentFrame],
         0, nullptr
     );
     
 }
 
+void CommandBufferManager::cmdBeginPostRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext){
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = frameContext.pipelineManager.viewRenderPasses()[toIndex(RenderPassType::Post)];
+    renderPassInfo.framebuffer = frameContext.swapChainManager.viewPostFrameBuffers()[frameContext.imageIndex];
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
+
+    renderPassInfo.clearValueCount = 0;
+    renderPassInfo.pClearValues = nullptr;
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+
 void CommandBufferManager::cmdInitRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, RenderPassType type){
-    if(type == RenderPassType::Base){
-        cmdBeginBaseRenderPass(commandBuffer, frameContext);
+    switch (type) {
+        case RenderPassType::Base:
+            cmdBeginBaseRenderPass(commandBuffer, frameContext);
+            break;
+        case RenderPassType::ImGui:
+            cmdBeginImGuiRenderPass(commandBuffer, frameContext);
+            break;
+        case RenderPassType::Post:
+            cmdBeginPostRenderPass(commandBuffer, frameContext);
+            break;
+        case RenderPassType::Count: std::unreachable();
+        default: std::unreachable();
     }
-    if(type == RenderPassType::Outline){
-        cmdBeginOutlineRenderPass(commandBuffer, frameContext);
-    }
-    if(type == RenderPassType::ImGui){
-        cmdBeginImGuiRenderPass(commandBuffer, frameContext);
-    }
-        cmdSetViewPort(commandBuffer, frameContext);
-        cmdSetScissor(commandBuffer, frameContext);
+    cmdSetViewPort(commandBuffer, frameContext);
+    cmdSetScissor(commandBuffer, frameContext);
 }
 
 void CommandBufferManager::cmdEndConfiguration(VkCommandBuffer& commandBuffer){
@@ -163,7 +179,8 @@ void CommandBufferManager::recordInstanceDraw(VkCommandBuffer& commandBuffer, co
     VkBuffer ib = renderContext.bufferManager.viewBuffer(drawBatch.indexBuffer, 0).buffer;
     vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
 
-    vkCmdDrawIndexed(commandBuffer, drawBatch.indexCount, drawBatch.instanceCount, drawBatch.indexOffset, 0, drawBatch.instanceOffset);
+    vkCmdDrawIndexed(commandBuffer, drawBatch.indexCount, 
+        drawBatch.instanceCount, drawBatch.indexOffset, 0, drawBatch.instanceOffset);
 }
 
 void CommandBufferManager::recordIndirectDraw(VkCommandBuffer& commandBuffer, const RenderContext& renderContext, uint32_t commandCount){
@@ -185,6 +202,211 @@ void CommandBufferManager::recordIndirectDraw(VkCommandBuffer& commandBuffer, co
     vkCmdDrawIndexedIndirect(commandBuffer, indirectBuffer, 0, commandCount, sizeof(VkDrawIndexedIndirectCommand));
 }
 
+void CommandBufferManager::cmdPipelineBarrier(VkCommandBuffer& commandBuffer, VkPipelineStageFlags srcStage, 
+    VkPipelineStageFlags dstStage, VkImageMemoryBarrier& barrier){
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        srcStage,
+        dstStage,
+        0,
+        0, 
+        nullptr,
+        0, 
+        nullptr,
+        1, 
+        &barrier
+    );
+}
+
+void CommandBufferManager::cmdBindComputePipeline(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame) {
+    vkCmdBindPipeline(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        frameContext.pipelineManager.viewPipelines()[toIndex(PipelineType::JFA)]
+    );
+
+    const VkDescriptorSet ds = frameContext.pipelineManager.viewJFADescriptorSets()[currentFrame];
+
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_COMPUTE,
+        frameContext.pipelineManager.viewLayouts()[toIndex(PipelineType::JFA)],
+        0, 1, &ds,
+        0, nullptr
+    );
+}
+
+void CommandBufferManager::cmdDispatchJFA(VkCommandBuffer& commandBuffer, const FrameContext& frameContext) {
+    constexpr uint32_t LOCAL = 16;
+
+    const VkExtent2D extent = frameContext.swapChainManager.getExtent();
+    const uint32_t gx = (extent.width  + LOCAL - 1) / LOCAL;
+    const uint32_t gy = (extent.height + LOCAL - 1) / LOCAL;
+
+    vkCmdDispatch(commandBuffer, gx, gy, 1);
+}
+
+void CommandBufferManager::recordJFAPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame) {
+    auto& ping = frameContext.swapChainManager.viewJFAPingImages();
+    auto& pong = frameContext.swapChainManager.viewJFAPongImages();
+
+    {
+        VkImageMemoryBarrier barriers[2]{};
+
+        for (size_t i = 0; i < 2; i++) {
+            barriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barriers[i].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barriers[i].newLayout = VK_IMAGE_LAYOUT_GENERAL;
+            barriers[i].srcAccessMask = 0;
+            barriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+            barriers[i].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barriers[i].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barriers[i].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barriers[i].subresourceRange.baseMipLevel = 0;
+            barriers[i].subresourceRange.levelCount = 1;
+            barriers[i].subresourceRange.baseArrayLayer = 0;
+            barriers[i].subresourceRange.layerCount = 1;
+        }
+
+        barriers[0].image = ping.image;
+        barriers[1].image = pong.image;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr,
+            0, nullptr,
+            2, barriers
+        );
+    }
+
+    const uint32_t w = frameContext.swapChainManager.getExtent().width;
+    const uint32_t h = frameContext.swapChainManager.getExtent().height;
+    const uint32_t maxDim = std::max(w, h);
+    const uint32_t steps = (maxDim > 1) ? static_cast<uint32_t>(std::ceil(std::log2(double(maxDim)))) : 1;
+
+    bool writeToPing = true;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+frameContext.pipelineManager.viewPipelines()[toIndex(PipelineType::JFA)]);
+
+    VkClearColorValue clear{};
+    clear.float32[0] = 0.0f;
+    clear.float32[1] = 0.0f;
+    clear.float32[2] = 0.0f;
+    clear.float32[3] = 0.0f;
+
+    VkImageSubresourceRange range{};
+    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+
+    vkCmdClearColorImage(commandBuffer, ping.image, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
+
+    vkCmdClearColorImage(commandBuffer, pong.image, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
+
+
+    for (uint32_t s = 0; s < steps; s++) {
+        int jump = 1 << (steps - 1 - s);
+
+        int readFromPing;
+        if (s == steps - 1) {
+            readFromPing = 1;
+        } else {
+            readFromPing = writeToPing ? 1 : 0;
+        }
+            
+        VkDescriptorSet ds = frameContext.pipelineManager.viewJFADescriptorSets()[currentFrame];
+
+        vkCmdBindDescriptorSets(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            frameContext.pipelineManager.viewLayouts()[toIndex(PipelineType::JFA)],
+            0,
+            1,
+            &ds,
+            0,
+            nullptr
+        );
+
+        std::array<int, 2> pcs = {jump, readFromPing};
+        vkCmdPushConstants(
+            commandBuffer,
+            frameContext.pipelineManager.viewLayouts()[toIndex(PipelineType::JFA)],
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0,
+            2 * sizeof(int),
+            pcs.data()
+        );
+
+        constexpr uint32_t LOCAL = 16;
+        vkCmdDispatch(
+            commandBuffer,
+            (w + LOCAL - 1) / LOCAL,
+            (h + LOCAL - 1) / LOCAL,
+            1
+        );
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        barrier.image = (s == steps - 1) ? pong.image : (writeToPing ? ping.image : pong.image);
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+
+        if (s != steps - 1){
+            writeToPing = !writeToPing;
+        }
+    }
+    const VkImage resultImage = pong.image;
+}
+
+
+void CommandBufferManager::transitionImageToGeneral(VkCommandBuffer commandBuffer, const RenderImage& image, const FrameContext& frameContext) {
+    VkImageMemoryBarrier b{};
+    b.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    b.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    b.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    b.srcAccessMask = 0;
+    b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.image = image.image;
+    b.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    b.subresourceRange.levelCount = 1;
+    b.subresourceRange.layerCount = 1;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &b
+    );
+}
 
 void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const RenderContext& renderContext, const FrameContext& frameContext) {
     DrawBatch quadBatch = {
@@ -197,6 +419,14 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
         
     };
     cmdSetBufferBeginInfo(commandBuffers[currentFrame]);
+    static int layoutsInitialized[MAX_FRAMES_IN_FLIGHT] = {0,0,0};
+    if (!layoutsInitialized[currentFrame]) {
+        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewIdImages(), frameContext);
+        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewSeedImages(), frameContext);
+        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewJFAPingImages(), frameContext);
+        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewJFAPingImages(), frameContext);
+        layoutsInitialized[currentFrame] = true;
+    }
     cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Base);
         
         commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PipelineType::Base);
@@ -204,12 +434,14 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
         recordIndirectDraw(commandBuffers[currentFrame], renderContext, renderContext.indirectCmdCount);
 
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
-
-    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Outline);
-
-        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PipelineType::Outline);
-        vkCmdDraw(commandBuffers[currentFrame], 3, 1, 0, 0);
     
+    recordJFAPass(commandBuffers[currentFrame], frameContext, currentFrame);
+
+    cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Post);
+        
+        commandBindPipeline(commandBuffers[currentFrame], currentFrame, frameContext, PipelineType::Post);
+        vkCmdDraw(commandBuffers[currentFrame],3, 1, 0, 0);
+
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
 
     cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::ImGui);

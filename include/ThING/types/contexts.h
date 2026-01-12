@@ -12,7 +12,7 @@ struct MeshData;
 
 struct FrameContext {
     uint32_t imageIndex;
-    VkClearValue* clearColor;
+    VkClearValue clearColor;
     const PipelineManager& pipelineManager;
     const SwapChainManager& swapChainManager;
 };
@@ -23,17 +23,3 @@ struct RenderContext {
     const BufferManager& bufferManager;
     uint32_t indirectCmdCount;
 };
-
-// struct PolygonContext{
-//     std::vector<Polygon>& polygons;
-//     Buffer* vertexBuffers;
-//     Buffer* indexBuffers;
-// };
-
-// struct CircleContext{
-//     std::vector<Circle>& circleCenters;
-//     std::vector<uint16_t>& quadIndices; //Someone needs this up there maybe idk, please help
-//     Buffer& quadBuffer;
-//     Buffer& quadIndexBuffer;
-//     Buffer* circleBuffers;
-// };

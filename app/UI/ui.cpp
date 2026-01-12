@@ -104,7 +104,7 @@ void UI(ThING::API& api, FPSCounter& fps){
     if(ImGui::TreeNode("Polygons")){
         auto polys = api.getInstanceVector(InstanceType::Polygon);
 
-        for(uint32_t i = 0; i < polys.size(); ++i){
+        for(uint32_t i = 0; i < polys.size(); i++){
             if(!polys[i].alive) continue;
 
             Entity e{ i, InstanceType::Polygon };

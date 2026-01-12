@@ -3,15 +3,20 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+
 enum class PipelineType{
-    Base,
-    Outline,
+    Base,//graphics first
+    Post,
+    JFA,// compute last
     Count
 };
 
+const uint32_t GRAPHICS_PIPELINE_COUNT = 2; // Just count the above :p
+const uint32_t COMPUTE_PIPELINE_COUNT = 1; // Same here
+
 enum class RenderPassType{
     Base,
-    Outline,
+    Post,
     ImGui,
     Count
 };
@@ -25,6 +30,7 @@ enum class InstanceType : uint32_t{
 enum class DescriptorType{
     UniformBuffer,
     CombinedImageSampler,
+    StorageImage,
     Count
 };
 

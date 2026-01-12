@@ -19,31 +19,28 @@ struct InstanceData {
     glm::vec4 color;
     glm::vec4 outlineColor = {0,0,0,0};
 
-    uint32_t alive = 1; // 0 death, 1 alive
+    uint32_t alive = 1;
 
-static std::array<VkVertexInputAttributeDescription, 9> getAttributeDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 9> attrs{};
-    uint32_t loc = 2;
-    uint32_t binding = 1;
+    static std::array<VkVertexInputAttributeDescription, 9> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 9> attributes{};
+        uint32_t loc = 2;
+        uint32_t binding = 1;
 
-    attrs[0] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(InstanceData, position) };
-    attrs[1] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(InstanceData, scale) };
+        attributes[0] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(InstanceData, position) };
+        attributes[1] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(InstanceData, scale) };
 
-    attrs[2] = { loc++, binding, VK_FORMAT_R32_SFLOAT,    offsetof(InstanceData, rotation) };
-    attrs[3] = { loc++, binding, VK_FORMAT_R32_SFLOAT,    offsetof(InstanceData, outlineSize) };
-    attrs[4] = { loc++, binding, VK_FORMAT_R32_UINT,      offsetof(InstanceData, objectID) };
-    attrs[5] = { loc++, binding, VK_FORMAT_R32_UINT,      offsetof(InstanceData, type) };
+        attributes[2] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, rotation) };
+        attributes[3] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, outlineSize) };
+        attributes[4] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, objectID) };
+        attributes[5] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, type) };
 
-    attrs[6] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, color) };
-    attrs[7] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, outlineColor) };
+        attributes[6] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, color) };
+        attributes[7] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, outlineColor) };
 
-    attrs[8] = { loc++, binding, VK_FORMAT_R32_UINT,      offsetof(InstanceData, alive) };
+        attributes[8] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, alive) };
 
-    return attrs;
-}
-
-
-
+        return attributes;
+    }
 
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription binding{};

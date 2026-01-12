@@ -18,6 +18,12 @@ BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, V
     ubo = {};
 }
 
+void BufferManager::createBuffers(){
+    createCustomBuffers();
+    createIndirectBuffers();
+    createUniformBuffers();
+}
+
 void BufferManager::uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData){
     if(bufferSize == 0){
         return;

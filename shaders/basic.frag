@@ -3,29 +3,25 @@
 layout(location = 0) in vec4 vColor;
 layout(location = 1) flat in uint vObjectID;
 layout(location = 2) in vec2 vLocalPos;
-layout(location = 3) flat in uint vType; // 0 = Polygon, 1 = Circle
+layout(location = 3) flat in uint vType;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out uint outObjectID;
-layout(location = 2) out vec4 outOutlineData;
+layout(location = 2) out vec2 outSeed;
 
 void main() {
-    if (vType == 0u) {
-        outColor = vColor;
-        outObjectID = vObjectID;
-        outOutlineData = vec4(0.0);
-        return;
-    }
-    
-    float d = length(vLocalPos);
-    float aa = fwidth(d);
+    float alpha = 1.0;
 
-    float alpha = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, d);
+    if (vType == 1u) {
+        float d  = length(vLocalPos);
+        float aa = fwidth(d);
+        alpha = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, d);
+    }
 
     if (alpha <= 0.0)
         discard;
 
-    outColor = vec4(vColor.rgb * alpha, alpha);
+    outColor    = vec4(vColor.rgb * alpha, 1.0);
     outObjectID = vObjectID;
-    outOutlineData = vec4(0.0);
+    outSeed     = gl_FragCoord.xy;
 }

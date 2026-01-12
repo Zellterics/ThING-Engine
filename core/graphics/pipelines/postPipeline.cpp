@@ -1,14 +1,15 @@
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 
-void PipelineManager::createOutlineGraphicsPipeline() {
-    auto vertShaderCode = readFile("../shaders/outlineVert.spv");
-    auto fragShaderCode = readFile("../shaders/outlineFrag.spv");
+void PipelineManager::createPostGraphicsPipeline() {
+    auto vertShaderCode = readFile("../shaders/postVert.spv");
+    auto fragShaderCode = readFile("../shaders/postFrag.spv");
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
     VkPipelineShaderStageCreateInfo shaderStages[2]{};
+
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertShaderModule;
@@ -21,11 +22,8 @@ void PipelineManager::createOutlineGraphicsPipeline() {
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount   = 0;
-    vertexInputInfo.pVertexBindingDescriptions      = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
     vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions    = nullptr;
-
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -53,15 +51,21 @@ void PipelineManager::createOutlineGraphicsPipeline() {
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT |
+        VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
+
     colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -73,6 +77,7 @@ void PipelineManager::createOutlineGraphicsPipeline() {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
     };
+
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
@@ -81,12 +86,17 @@ void PipelineManager::createOutlineGraphicsPipeline() {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[toIndex(PipelineType::Outline)];
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[toIndex(PipelineType::Post)];
     pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
-    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayouts[toIndex(PipelineType::Outline)]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create outline pipeline layout!");
+    if (vkCreatePipelineLayout(
+            device,
+            &pipelineLayoutInfo,
+            nullptr,
+            &pipelineLayouts[toIndex(PipelineType::Post)]
+        ) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create post pipeline layout!");
     }
 
     VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -100,57 +110,22 @@ void PipelineManager::createOutlineGraphicsPipeline() {
     pipelineInfo.pMultisampleState = &multisampling;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = pipelineLayouts[toIndex(PipelineType::Outline)];
-    pipelineInfo.renderPass = renderPasses[toIndex(PipelineType::Outline)];
+    pipelineInfo.layout = pipelineLayouts[toIndex(PipelineType::Post)];
+    pipelineInfo.renderPass = renderPasses[toIndex(RenderPassType::Post)];
     pipelineInfo.subpass = 0;
-    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipelines[toIndex(PipelineType::Outline)]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create outline graphics pipeline!");
+    if (vkCreateGraphicsPipelines(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &pipelineInfo,
+            nullptr,
+            &pipelines[toIndex(PipelineType::Post)]
+        ) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create post graphics pipeline!");
     }
 
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
-
-// void PipelineManager::createOutlineDescriptorSetLayout() {
-//     const size_t OUTLINE_BINDING_AMOUT = 3;
-
-//     VkDescriptorSetLayoutBinding uboLayoutBinding{};
-//     uboLayoutBinding.binding = 0;
-//     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-//     uboLayoutBinding.descriptorCount = 1;
-//     uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-//     uboLayoutBinding.pImmutableSamplers = nullptr;
-
-//     VkDescriptorSetLayoutBinding idSamplerBinding{};
-//     idSamplerBinding.binding = 1;
-//     idSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-//     idSamplerBinding.descriptorCount = 1;
-//     idSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-//     idSamplerBinding.pImmutableSamplers = nullptr;
-
-//     VkDescriptorSetLayoutBinding outlineSamplerBinding{};
-//     outlineSamplerBinding.binding = 2;
-//     outlineSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-//     outlineSamplerBinding.descriptorCount = 1;
-//     outlineSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-//     outlineSamplerBinding.pImmutableSamplers = nullptr;
-
-//     std::array<VkDescriptorSetLayoutBinding, 3> bindings = {
-//         uboLayoutBinding,
-//         idSamplerBinding,
-//         outlineSamplerBinding
-//     };
-
-//     bindingCounts[PIPELINE_TYPE_OUTLINE] = OUTLINE_BINDING_AMOUT;
-
-//     VkDescriptorSetLayoutCreateInfo layoutInfo{};
-//     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-//     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-//     layoutInfo.pBindings = bindings.data();
-
-//     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayouts[PIPELINE_TYPE_OUTLINE]) != VK_SUCCESS) {
-//         throw std::runtime_error("failed to create outline descriptor set layout!");
-//     }
-// }

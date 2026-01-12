@@ -4,6 +4,7 @@
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
+#include "ThING/graphics/swapChainManager.h"
 #include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
@@ -16,7 +17,7 @@
 ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
     zoom = 1;
     offset = {0, 0};
-    clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // STANDAR = BLACK
+    clearColor = {{{0.0f, 0.0f, 0.0f, 0.0f}}}; // STANDAR = BLACK
     currentFrame = 0;
     worldData.circleCount = 0;
     worldData.instances = {};
@@ -33,17 +34,14 @@ void ProtoThiApp::initVulkan() {
     commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
     swapChainManager.setDevice(device);
     swapChainManager.createSwapChain(physicalDevice, windowManager.getWindow());
-    swapChainManager.createImageViews();
     swapChainManager.createIdAttachments(physicalDevice);
-    pipelineManager.init(device, swapChainManager.getImageFormat());
-    swapChainManager.createBaseFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::Base)]); // MAKE ONLY ONE FUNCTION FOR THIS 3
-    swapChainManager.createOutlineFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::Outline)]);
-    swapChainManager.createImGuiFramebuffers(pipelineManager.getRenderPasses()[toIndex(RenderPassType::ImGui)]);
+    swapChainManager.createSeedAttachments(physicalDevice);
+    pipelineManager.init(device, swapChainManager.viewImages()[0].format);
+    swapChainManager.createFrameBuffers(pipelineManager.viewRenderPasses());
+    swapChainManager.createJFAAttachments(physicalDevice);
     pipelineManager.createPipelines();
-    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.getCommandPool(), graphicsQueue};
-    bufferManager.createCustomBuffers();
-    bufferManager.createIndirectBuffers();
-    bufferManager.createUniformBuffers();
+    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.viewCommandPool(), graphicsQueue};
+    bufferManager.createBuffers();
     pipelineManager.createDescriptors(bufferManager.viewBuffers(BufferType::Uniform), swapChainManager);
     commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
     swapChainManager.createSyncObjects();
@@ -83,8 +81,6 @@ void ProtoThiApp::cleanup() {
     vkDestroySurfaceKHR(instance, swapChainManager.getSurface(), nullptr);
     vkDestroyInstance(instance, nullptr);
 
-    
-
     glfwTerminate();
 }
 
@@ -113,7 +109,7 @@ void ProtoThiApp::drawFrame() {
     VkResult result = vkAcquireNextImageKHR(device, swapChainManager.getSwapChain(), UINT64_MAX, swapChainManager.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getRenderPasses());
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
@@ -121,10 +117,10 @@ void ProtoThiApp::drawFrame() {
 
     vkResetFences(device, 1, &swapChainManager.getInFlightFences()[currentFrame]);
 
-    vkResetCommandBuffer(commandBufferManager.getCommandBufferOnFrame(currentFrame), /*VkCommandBufferResetFlagBits*/ 0);
+    vkResetCommandBuffer(commandBufferManager.viewCommandBufferOnFrame(currentFrame), 0);
 
     RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount};
-    FrameContext frameContext{imageIndex, &clearColor, pipelineManager, swapChainManager};
+    FrameContext frameContext{imageIndex, clearColor, pipelineManager, swapChainManager};
     pipelineManager.updateDescriptorSets(currentFrame, bufferManager.viewBuffer(BufferType::Uniform, currentFrame), swapChainManager, imageIndex);
 
     commandBufferManager.recordCommandBuffer(currentFrame, renderContext, frameContext);
@@ -139,7 +135,7 @@ void ProtoThiApp::drawFrame() {
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBufferManager.getCommandBufferOnFrame(currentFrame);
+    submitInfo.pCommandBuffers = &commandBufferManager.viewCommandBufferOnFrame(currentFrame);
 
     VkSemaphore signalSemaphores[] = {swapChainManager.getRenderFinishedSemaphores()[imageIndex]};
     submitInfo.signalSemaphoreCount = 1;
@@ -165,7 +161,8 @@ void ProtoThiApp::drawFrame() {
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || windowManager.resizedFlag) {
         windowManager.resizedFlag = false;
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getRenderPasses());
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
+        pipelineManager.createDescriptors(bufferManager.viewBuffers(BufferType::Uniform), swapChainManager);
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
     }

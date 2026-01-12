@@ -29,7 +29,6 @@ namespace std {
     };
 }
 
-
 inline uint32_t to_u32(size_t v) {
     assert(v <= UINT32_MAX);
     return uint32_t(v);

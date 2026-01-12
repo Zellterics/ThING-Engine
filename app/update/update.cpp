@@ -155,21 +155,18 @@ void update(ThING::API& api, FPSCounter& fps){
                             int nx = x + j;
                             int ny = y + k;
 
-                            if (nx < 0 || ny < 0 ||
-                                nx >= gridWidth || ny >= gridHeight)
+                            if (nx < 0 || ny < 0 || nx >= gridWidth || ny >= gridHeight)
                                 continue;
 
                             for (uint32_t neighbor : circleID[(ny * gridWidth) + nx]) {
                                 if (ID == neighbor) continue;
                                 if (j == 0 && k == 0 && ID > neighbor) continue;
 
-                                Collision collision =
-                                    getCircleCollision(circleInstances[ID],
-                                                       circleInstances[neighbor]);
+                                Collision collision = getCircleCollision(circleInstances[ID], circleInstances[neighbor]);
 
                                 if(collision.hit){
                                     collissionCount++;
-                                    circlePhysics[ID].currentPos      -= collision.normal * collision.depth * stiffness;
+                                    circlePhysics[ID].currentPos -= collision.normal * collision.depth * stiffness;
                                     circlePhysics[neighbor].currentPos += collision.normal * collision.depth * stiffness;
                                 }
                             }

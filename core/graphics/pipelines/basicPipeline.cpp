@@ -1,6 +1,7 @@
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <span>
+#include <vulkan/vulkan_core.h>
 
 void PipelineManager::createBaseGraphicsPipeline(){
     auto basicVertShaderCode = readFile("../shaders/basicVert.spv");
@@ -78,9 +79,9 @@ void PipelineManager::createBaseGraphicsPipeline(){
     idColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT;
     idColorBlendAttachment.blendEnable = VK_FALSE;
 
-    VkPipelineColorBlendAttachmentState outlineColorBlendAttachment{};
-    outlineColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    outlineColorBlendAttachment.blendEnable = VK_FALSE;
+    VkPipelineColorBlendAttachmentState seedColorBlendAttachment{};
+    seedColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT;
+    seedColorBlendAttachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState basicColorBlendAttachment{};
     basicColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -95,7 +96,7 @@ void PipelineManager::createBaseGraphicsPipeline(){
     std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments = {
         basicColorBlendAttachment,
         idColorBlendAttachment,
-        outlineColorBlendAttachment
+        seedColorBlendAttachment
     };
 
     VkPipelineColorBlendStateCreateInfo basicColorBlending{};
@@ -143,18 +144,23 @@ void PipelineManager::createBaseGraphicsPipeline(){
     basicPipelineInfo.subpass = 0;
     basicPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &basicPipelineInfo, nullptr, &graphicsPipelines[toIndex(PipelineType::Base)]) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(
+            device, 
+            VK_NULL_HANDLE, 
+            1, 
+            &basicPipelineInfo, 
+            nullptr, 
+            &pipelines[toIndex(PipelineType::Base)]
+        ) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
-
-
 
     vkDestroyShaderModule(device, basicFragShaderModule, nullptr);
     vkDestroyShaderModule(device, basicVertShaderModule, nullptr);
 }
 
 void PipelineManager::createDescriptorSetLayout(PipelineType type) {
-    const  std::span<const DescriptorBindingDesc>& bindingsDesc = descriptorLayouts[toIndex(type)];
+    const std::span<const DescriptorBindingDesc>& bindingsDesc = descriptorLayouts[toIndex(type)];
 
     std::vector<VkDescriptorSetLayoutBinding> bindings;
     bindings.reserve(bindingsDesc.size());
@@ -163,10 +169,7 @@ void PipelineManager::createDescriptorSetLayout(PipelineType type) {
         VkDescriptorSetLayoutBinding binding{};
         binding.binding = desc.binding;
         binding.descriptorCount = 1;
-        binding.stageFlags =
-            (desc.type == DescriptorType::UniformBuffer)
-                ? VK_SHADER_STAGE_VERTEX_BIT
-                : VK_SHADER_STAGE_FRAGMENT_BIT;
+        binding.stageFlags = desc.stages;
 
         switch (desc.type) {
             case DescriptorType::UniformBuffer:
@@ -174,6 +177,9 @@ void PipelineManager::createDescriptorSetLayout(PipelineType type) {
                 break;
             case DescriptorType::CombinedImageSampler:
                 binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                break;
+            case DescriptorType::StorageImage:
+                binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
                 break;
             default:
                 std::unreachable();
