@@ -1,8 +1,5 @@
 /build
 /ThING.txt
 /.vscode
-/external/*
-!/external/README.txt
-!/external/Monocraft.ttf
 imgui.ini
 /.cache
