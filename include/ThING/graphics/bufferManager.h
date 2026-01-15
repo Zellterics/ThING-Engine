@@ -1,5 +1,10 @@
 #pragma once
-#include "ThING/types/quad.h"
+#include "ThING/types/buffer.h"
+#include "ThING/types/enums.h"
+#include "ThING/types/renderData.h"
+#include <array>
+#include <cstddef>
+#include <span>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <vector>
@@ -7,46 +12,36 @@
 #include <ThING/types/dynamicBuffer.h>
 #include <ThING/types/vertex.h>
 #include <ThING/types/uniformBufferObject.h>
-#include <ThING/types/circle.h>
 
 class BufferManager{
 public:
     BufferManager() = default;
     BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue);
-    ~BufferManager();
+    void createBuffers();
+
     void uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void udpateBuffer(Buffer& passedBuffer, 
-        VkFence& inFlightFences, 
-        const void* data, 
-        VkDeviceSize newBufferSize, 
-        uint32_t frameIndex,
-        VkBufferUsageFlags usage,
-        size_t id);
-    void createCustomBuffers(std::vector<Vertex>& vertices, 
-        std::vector<uint16_t>& indices, 
-        std::vector<Quad>& quadVertices,
-        std::vector<uint16_t>& quadIndices,
-        std::vector<Circle>& circleCenters);
-    void updateCustomBuffers(std::vector<Vertex>& vertices, 
-        std::vector<uint16_t>& indices, 
-        std::vector<Circle>& circleCenters, 
-        std::vector<VkFence>& inFlightFences,
-        uint32_t frameIndex);
-    void createUniformBuffers();
-    void updateUniformBuffers(VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex);
+    void updateBuffer(VkFence& inFlightFences, const void* data, VkDeviceSize newBufferSize, 
+        uint32_t frameIndex, VkBufferUsageFlags usage, BufferType type);
+    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, std::span<InstanceData> instanceData, 
+        std::span<SSBO> ssboData ,std::span<VkFence> inFlightFences, uint32_t frameIndex);
+    void updateIndirectBuffers(std::span<const VkDrawIndexedIndirectCommand> commands, std::vector<VkFence>& inFlightFences, uint32_t frameIndex);
+    void updateUniformBuffers(const VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex);
     void cleanUp();
-
-    Buffer* getVertexBuffers() {return vertexBuffers;};
-    Buffer* getIndexBuffers() {return indexBuffers;};
-    Buffer& getQuadBuffer() {return quadBuffer;};
-    Buffer& getQuadIndexBuffer() {return quadIndexBuffer;};
-    Buffer* getCircleBuffers() {return circleBuffers;};
-    Buffer* getUniformBuffers() {return uniformBuffers;};
-    void setUpdateUBOFlag(bool flag) {updateUBOFlag = flag;};
+    const Buffer& viewBuffer(BufferType type, size_t index) const;
+    std::span<const Buffer, MAX_FRAMES_IN_FLIGHT> viewBuffers(BufferType type) const;
 private:
+
+    void createCustomBuffers();
+    void createIndirectBuffers();
+    void createUniformBuffers();
+
+    Buffer& getBuffer(BufferType type, size_t index);
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT>& getBuffers(BufferType type);
+
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 
     std::vector<Buffer> buffers;
     VkDevice device;
@@ -54,13 +49,15 @@ private:
     VkQueue graphicsQueue;
     VkPhysicalDevice physicalDevice;
 
-    bool updateUBOFlag;
     std::vector<DynamicBuffer<MAX_FRAMES_IN_FLIGHT>> stagingBuffers;
     UniformBufferObject ubo;
-    Buffer vertexBuffers[MAX_FRAMES_IN_FLIGHT];
-    Buffer indexBuffers[MAX_FRAMES_IN_FLIGHT];
-    Buffer uniformBuffers[MAX_FRAMES_IN_FLIGHT];
-    Buffer quadBuffer;
-    Buffer circleBuffers[MAX_FRAMES_IN_FLIGHT];
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> ssbo;
+    
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> vertexBuffers;
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> indexBuffers;
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers;
+    Buffer quadVertexBuffer;
     Buffer quadIndexBuffer;
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> instanceBuffers;
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> indirectBuffers;
 };

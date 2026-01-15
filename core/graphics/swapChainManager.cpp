@@ -1,7 +1,12 @@
 #include "ThING/extras/vulkanSupport.h"
+#include "ThING/types/enums.h"
+#include "ThING/types/renderImage.h"
 #include <ThING/graphics/swapChainManager.h>
 #include <algorithm>
+#include <cstddef>
+#include <span>
 #include <stdexcept>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 #include <limits>
 #include <ThING/consts.h>
@@ -13,7 +18,6 @@ SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window){
 
 void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window) {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice, surface);
-
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
     VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities, window);
@@ -56,13 +60,23 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwin
 
     vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
     images.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, images.data());
+    depthImages.resize(imageCount);
 
-    imageFormat = surfaceFormat.format;
+    std::vector<VkImage> swapchainImages;
+    swapchainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapchainImages.data());
+    
+    for(size_t i = 0; i < imageCount; i++){
+        images[i].image = swapchainImages[i];
+        images[i].format = surfaceFormat.format;
+        images[i].extent = extent;
+    }
+
     swapChainExtent = extent;
+    createBaseImageViews();
 }
 
-void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, VkRenderPass& renderPass) {
+void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses) {
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0) {
@@ -71,23 +85,158 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
     }
 
     vkDeviceWaitIdle(device);
-
-    cleanupSwapChain();
+    cleanUp();
 
     createSwapChain(physicalDevice, window);
-    createImageViews();
-    createFramebuffers(renderPass);
+    createDepthAttachments(physicalDevice);
+    createIdAttachments(physicalDevice);
+    createSeedAttachments(physicalDevice);
+    createFrameBuffers(renderPasses);
+    createJFAAttachments(physicalDevice);
+
+    if (renderFinishedSemaphores.size() != images.size()) {
+        for (auto s : renderFinishedSemaphores) vkDestroySemaphore(device, s, nullptr);
+        renderFinishedSemaphores.clear();
+        renderFinishedSemaphores.resize(images.size());
+        VkSemaphoreCreateInfo si{}; si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        for (size_t i=0; i < renderFinishedSemaphores.size(); i++) {
+            if (vkCreateSemaphore(device, &si, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+                throw std::runtime_error("failed to recreate renderFinished semaphore!");
+            }
+        }
+    }
 }
 
-void SwapChainManager::createImageViews() {
-    imageViews.resize(images.size());
+uint32_t SwapChainManager::findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void SwapChainManager::createImage(RenderImage& image, VkImageUsageFlags usage){
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width  = image.extent.width;
+    imageInfo.extent.height = image.extent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = image.format;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples     = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(device, &imageInfo, nullptr, &image.image) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create ID image!");
+    }
+}
+
+void SwapChainManager::createImageMemory(RenderImage& image, VkPhysicalDevice physicalDevice){
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device, image.image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice,memRequirements.memoryTypeBits,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &image.Memory) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate ID image memory!");
+    }
+
+    vkBindImageMemory(device, image.image, image.Memory, 0);
+}
+
+void SwapChainManager::createImageView(RenderImage& image){
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = image.format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device, &viewInfo, nullptr, &image.view) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create ID image view!");
+    }
+}
+
+void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
+    jfaPing.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    jfaPing.extent = swapChainExtent;
+    jfaPong.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    jfaPong.extent = swapChainExtent;
+    createImage(jfaPing, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+    createImage(jfaPong, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+    createImageMemory(jfaPing, physicalDevice);
+    createImageMemory(jfaPong, physicalDevice);
+    createImageView(jfaPing);
+    createImageView(jfaPong);
+}
+
+void SwapChainManager::createSeedAttachments(VkPhysicalDevice physicalDevice){
+    seedImages.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    seedImages.extent = swapChainExtent;
+    createImage(seedImages, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+    createImageMemory(seedImages, physicalDevice);
+    createImageView(seedImages);
+}
+
+void SwapChainManager::createIdAttachments(VkPhysicalDevice physicalDevice) {
+    idImages.format = VK_FORMAT_R32G32_SINT;
+    idImages.extent = swapChainExtent;
+    createImage(idImages, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+    createImageMemory(idImages, physicalDevice);
+    createImageView(idImages);
+}
+
+void SwapChainManager::createDepthAttachments(VkPhysicalDevice physicalDevice){
+    for (size_t i = 0; i < depthImages.size(); i++){
+        depthImages[i].format = VK_FORMAT_D32_SFLOAT;
+        depthImages[i].extent = swapChainExtent;
+        createImage(depthImages[i], VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        createImageMemory(depthImages[i], physicalDevice);
+        createDepthImageView(depthImages[i]);
+    }
+}
+
+void SwapChainManager::createDepthImageView(RenderImage& image){
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = image.format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device, &viewInfo, nullptr, &image.view) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create ID image view!");
+    }
+}
+
+void SwapChainManager::createBaseImageViews() {
     for (size_t i = 0; i < images.size(); i++) {
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = images[i];
+        createInfo.image = images[i].image;
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = imageFormat;
+        createInfo.format = images[i].format;
         createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -98,20 +247,45 @@ void SwapChainManager::createImageViews() {
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(device, &createInfo, nullptr, &imageViews[i]) != VK_SUCCESS) {
+        if (vkCreateImageView(device, &createInfo, nullptr, &images[i].view) != VK_SUCCESS) {
             throw std::runtime_error("failed to create image views!");
         }
     }
 }
 
-void SwapChainManager::cleanupSwapChain() {
-    for (auto framebuffer : framebuffers) {
+void SwapChainManager::cleanUp(){
+    for (auto framebuffer : baseFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
-
-    for (auto imageView : imageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
+    for (auto framebuffer : imGuiFramebuffers) {
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
+    for (auto framebuffer : postFramebuffers){
+        vkDestroyFramebuffer(device, framebuffer, nullptr);
+    }
+    for (auto image : images) {
+        vkDestroyImageView(device, image.view, nullptr);
+    }
+    for (auto image : depthImages) {
+        vkDestroyImageView(device, image.view, nullptr);
+        vkDestroyImage(device, image.image, nullptr);
+        vkFreeMemory(device, image.Memory, nullptr);
+    }
+    vkDestroyImageView(device, idImages.view, nullptr);
+    vkDestroyImage(device, idImages.image, nullptr);
+    vkFreeMemory(device, idImages.Memory, nullptr);
+
+    vkDestroyImageView(device, seedImages.view, nullptr);
+    vkDestroyImage(device, seedImages.image, nullptr);
+    vkFreeMemory(device, seedImages.Memory, nullptr);
+
+    vkDestroyImageView(device, jfaPing.view, nullptr);
+    vkDestroyImage(device, jfaPing.image, nullptr);
+    vkFreeMemory(device, jfaPing.Memory, nullptr);
+
+    vkDestroyImageView(device, jfaPong.view, nullptr);
+    vkDestroyImage(device, jfaPong.image, nullptr);
+    vkFreeMemory(device, jfaPong.Memory, nullptr);
 
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 }
@@ -122,7 +296,6 @@ VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<V
             return availableFormat;
         }
     }
-
     return availableFormats[0];
 }
 
@@ -132,7 +305,6 @@ VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPre
             return availablePresentMode;
         }
     }
-
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -162,25 +334,75 @@ VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& ca
     }
 }
 
-void SwapChainManager::createFramebuffers(VkRenderPass& renderPass) {
-    framebuffers.resize(imageViews.size());
+void SwapChainManager::createFrameBuffers(std::span<const VkRenderPass> renderPasses){
+    createBaseFramebuffers(renderPasses[toIndex(RenderPassType::Base)]);
+    createImGuiFramebuffers(renderPasses[toIndex(RenderPassType::ImGui)]);
+    createPostFramebuffers(renderPasses[toIndex(RenderPassType::Post)]);
+}
 
-    for (size_t i = 0; i < imageViews.size(); i++) {
-        VkImageView attachments[] = {
-            imageViews[i]
+void SwapChainManager::createBaseFramebuffers(const VkRenderPass& renderPass) {
+    baseFramebuffers.resize(images.size());
+
+    for (size_t i = 0; i < images.size(); i++) {
+        std::array<VkImageView, 4> attachments = {
+            images[i].view,
+            idImages.view,
+            seedImages.view,
+            depthImages[i].view
         };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+        framebufferInfo.pAttachments = attachments.data();
+        framebufferInfo.width = images[i].extent.width;
+        framebufferInfo.height = images[i].extent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &baseFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+    }
+}
+
+void SwapChainManager::createPostFramebuffers(const VkRenderPass& renderPass) {
+    postFramebuffers.resize(images.size());
+
+    for (size_t i = 0; i < images.size(); i++) {
+        VkImageView attachments = {images[i].view};
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = &attachments;
+        framebufferInfo.width = images[i].extent.width;
+        framebufferInfo.height = images[i].extent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &postFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create framebuffer!");
+        }
+    }
+}
+
+void SwapChainManager::createImGuiFramebuffers(const VkRenderPass& renderPass) {
+    imGuiFramebuffers.resize(images.size());
+    for (size_t i = 0; i < images.size(); i++) {
+        VkImageView attachments[] = { images[i].view };
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         framebufferInfo.renderPass = renderPass;
         framebufferInfo.attachmentCount = 1;
         framebufferInfo.pAttachments = attachments;
-        framebufferInfo.width = swapChainExtent.width;
-        framebufferInfo.height = swapChainExtent.height;
+        framebufferInfo.width = images[i].extent.width;
+        framebufferInfo.height = images[i].extent.height;
         framebufferInfo.layers = 1;
 
-        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create framebuffer!");
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &imGuiFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create imgui framebuffer!");
         }
     }
 }
@@ -188,7 +410,6 @@ void SwapChainManager::createFramebuffers(VkRenderPass& renderPass) {
 void SwapChainManager::createSyncObjects() {
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
     renderFinishedSemaphores.resize(images.size());
 
     VkSemaphoreCreateInfo semaphoreInfo{};

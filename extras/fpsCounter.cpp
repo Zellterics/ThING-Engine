@@ -20,6 +20,7 @@ bool FPSCounter::frame() {
     }
     return false;
 }
+
 void FPSCounter::delay(float targetFrameTime) {
     using namespace std::chrono;
 
@@ -31,9 +32,11 @@ void FPSCounter::delay(float targetFrameTime) {
         while (duration_cast<duration<float>>(steady_clock::now() - frameStart).count() < targetFrameTime) {}
     }
 }
+
 int FPSCounter::getFPS() const {
     return (deltaTime > 0.0f) ? static_cast<int>(1.0f / deltaTime) : 0;
 }
+
 float FPSCounter::getDeltaTime() const {
     return deltaTime;
 }

@@ -5,6 +5,7 @@
 #include "imgui.h"
 
 // Backends (GLFW + Vulkan)
+#include "ThING/types/enums.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 
@@ -51,10 +52,10 @@ void ProtoThiApp::initImGui() {
     init_info.PipelineCache = VK_NULL_HANDLE;
     init_info.DescriptorPool = imguiDescriptorPool;
     init_info.MinImageCount = 2;
-    init_info.ImageCount = static_cast<uint32_t>(swapChainManager.getImages().size());
+    init_info.ImageCount = static_cast<uint32_t>(swapChainManager.viewImages().size());
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     init_info.UseDynamicRendering = false;
-    init_info.RenderPass = pipelineManager.getrenderPass();
+    init_info.RenderPass = pipelineManager.viewRenderPasses()[toIndex(RenderPassType::ImGui)];
 
     if (!ImGui_ImplVulkan_Init(&init_info)) {
         throw std::runtime_error("failed to init ImGui Vulkan backend!");
@@ -69,7 +70,7 @@ VkCommandBuffer ProtoThiApp::beginSingleTimeCommands() {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = commandBufferManager.viewCommandPool();
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
@@ -94,5 +95,5 @@ void ProtoThiApp::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
     vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphicsQueue);
 
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(device, commandBufferManager.viewCommandPool(), 1, &commandBuffer);
 }

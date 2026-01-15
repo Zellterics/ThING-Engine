@@ -1,21 +1,23 @@
 #pragma once
 
+#include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
-#include <functional>
+#include <span>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-
-#include <iostream>
+#ifdef DEBUG
+    #include <iostream>
+#endif
 #include <vector>
 #include <cstdint>
 
 #include <ThING/consts.h>
-#include <ThING/core/detail.h>
 #include <ThING/graphics/bufferManager.h>
 #include <ThING/graphics/pipelineManager.h>
 #include <ThING/window/windowManager.h>
 #include <ThING/graphics/swapChainManager.h>
+#include <ThING/graphics/commandBufferManager.h>
 #include <ThING/extras/handMade.h>
 #include <ThING/extras/fpsCounter.h>
 #include <ThING/types.h>
@@ -29,14 +31,13 @@ public:
     ProtoThiApp();
     void run();
 
-    //detail
-    friend void detail::setResizedFlag(ProtoThiApp& app, bool flag);
     friend class ::ThING::API;
 private:
     WindowManager windowManager;
     BufferManager bufferManager;
     PipelineManager pipelineManager;
     SwapChainManager swapChainManager;
+    CommandBufferManager commandBufferManager;
 
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
@@ -45,28 +46,25 @@ private:
     VkDevice device;
 
     VkQueue graphicsQueue;
-    VkQueue presentQueue;
-
-    VkCommandPool commandPool;
+    VkQueue presentQueue;    
 
     uint32_t currentFrame;
 
     VkDescriptorPool imguiDescriptorPool;
-    
-    std::vector<VkCommandBuffer> commandBuffers;
 
     std::vector<Vertex> vertices;
-    std::vector<Quad> quadVertices;
-    std::vector<Circle> circleCenters;
-    std::vector<uint16_t> quadIndices;
     std::vector<uint16_t> indices;
 
-    // Hooks Variables
+    WorldData worldData;
+    uint32_t indirectCommandCount;
+    /* I really don't like this being here, it is calculated once per frame in mainLoop, but since I need this info I need
+        a variable here... I think I really need that renderer class more every day, but I really want to get this donde right now
+          so that's just life, move it later to a renderer class later maybe... */
+
+    // Api Variables
     float zoom;
     glm::vec2 offset;
-    bool framebufferResized;
-    VkClearValue clearColor;
-    std::vector<Polygon> polygons;
+    std::vector<VkClearValue> clearColor;
 
     void initVulkan();
     void initImGui();
@@ -74,6 +72,9 @@ private:
     
     void renderFrame();
     void cleanup();
+
+    void recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
+        std::span<InstanceData> lineInstances, std::span<MeshData> meshes);
     
     void createInstance();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -81,15 +82,6 @@ private:
     void pickPhysicalDevice();
     void createLogicalDevice();
 
-    void createCommandPool();
-    void createCommandBuffers();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, 
-    uint32_t imageIndex,
-    Buffer* vertexBuffers,
-    Buffer* indexBuffers,
-    Buffer& quadBuffer,
-    Buffer& quadIndexBuffer,
-    Buffer* circleBuffers);
     void drawFrame();
     
     bool isDeviceSuitable(VkPhysicalDevice device);
@@ -100,7 +92,8 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
+        VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
         #ifdef DEBUG
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         #endif
