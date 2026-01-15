@@ -1,5 +1,7 @@
 #include <ThING/window/windowManager.h>
 
+bool WindowManager::resizedFlag = true;
+
 WindowManager::WindowManager(int width, int height, const char* title){
     glfwInit();
 

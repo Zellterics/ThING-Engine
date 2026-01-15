@@ -1,5 +1,15 @@
 #pragma once
+#include <ThING/types/apiTypes.h>
+#include <ThING/types/renderData.h>
+#include "ThING/types/enums.h"
+#include "glm/fwd.hpp"
 #include <ThING/core.h>
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <sys/types.h>
+#include <vector>
+#include <miniaudio.h>
 
 namespace ThING{
     class API{
@@ -11,29 +21,46 @@ namespace ThING{
         bool setUICallback(std::function<void(ThING::API&, FPSCounter&)>);
         void run();
 
-        int getCircleAmount();
+        uint32_t getInstanceCount(InstanceType type);
         void getWindowSize(int* x, int* y);
-        void addCircle(glm::vec2 pos, float size, glm::vec3 color);
-        std::vector<Circle>* getCircleDrawVector();
-        void setZoomAndOffset(float zoom, glm::vec2 offset);
+        Entity addCircle(glm::vec2 pos, float size, glm::vec4 color);
+        std::span<InstanceData> getInstanceVector(InstanceType type);
+        std::span<LineData> getLineVector();
+        void setZoom(float zoom);
+        void setOffset(glm::vec2 offset);
         void setBackgroundColor(glm::vec4 color);
-        glm::mat4 build2DTransform(glm::vec2 pos, float rotation, glm::vec2 scale);
-        void setRotation(glm::vec2 pos, float rotation, glm::vec2 scale);
-        std::string makeUniqueId(std::string baseId);
-        void addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind);
-        void addPolygon(std::string& id, glm::vec2 pos, float rotation, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
-        Polygon& getPolygon(std::string id);
-        bool exists(Polygon& polygon);
-        bool addRegularPol(std::string id, size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec3 color);
+        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint16_t> ind);
+        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
+        Entity addLine(glm::vec2 point1, glm::vec2 point2, float width);
+        bool exists(const Entity e);
+        bool deleteInstance(const Entity e);
+        InstanceData& getInstance(const Entity e);
+        Entity addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color);
+        bool playAudio(const std::string& soundFile);
+        bool playAudio(const std::string& soundFile, uint8_t volume);
+
     private:
+        Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
+        Entity addCircle(InstanceData&& instance);
+        Entity addLine(LineData&& line);
+        void cleanRenderData();
+
         void mainLoop();
+
+        std::vector<InstanceData> circleInstances;
+        std::vector<LineData> lineInstances;
+        std::vector<InstanceData> polygonInstances;
+        std::vector<MeshData> polygonMeshes;
+
+        std::vector<Entity> circleFreeList;
+        std::vector<Entity> lineFreeList;
+        std::vector<Entity> polygonFreeList;
+
 
         std::function<void(ThING::API&, FPSCounter&)> updateCallback;
         std::function<void(ThING::API&, FPSCounter&)> uiCallback;
 
-        
-
-
+        ma_engine audioEngine;
         ProtoThiApp app;
     };
 }

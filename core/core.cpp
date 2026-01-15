@@ -1,65 +1,33 @@
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
+#include <cstdint>
+#include <cstring>
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
+#include "ThING/graphics/swapChainManager.h"
+#include "ThING/types/contexts.h"
+#include "ThING/types/renderData.h"
 #include "imgui.h"
 
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
-#include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 
-//ERASE THIS FUNCTION WITH THE COMMENT BELLOW
-glm::mat4 build2DTransform(glm::vec2 pos, float rotation, glm::vec2 scale) {
-    glm::mat4 t(1.0f);
-    t = glm::translate(t, glm::vec3(pos, 0.0f));
-    t = glm::rotate(t, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
-    t = glm::scale(t, glm::vec3(scale, 1.0f));
-    return t;
-}
-
-ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
+ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE.c_str()){
     zoom = 1;
     offset = {0, 0};
-    framebufferResized = false;
-    clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; // STANDAR = BLACK
+    clearColor.resize(4);
+    clearColor[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[2].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[3].depthStencil = {1.0f, 0};
     currentFrame = 0;
-    //ALL THE NEXT IS FOR THE EXAMPLE SQUARE, PLEASE "REMOVE" LATER AND REPLACE WITH A SINGLE TRIANGLE OFF SCREEN
-    vertices = {
-        {{ 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-        {{ 0.0f,  1.0f}, {1.0f, 0.0f, 1.0f}}
-    };
-
-    polygons.push_back({"test", 0, 5, 0, 9, true, 
-        {build2DTransform(
-            {100.0f, 100.0f},
-            glm::radians(0.0f),
-            {50.0f, 50.0f}
-        )}});
-    
-    indices = {
-        0, 1, 2, 2, 3, 0, 4, 1, 0
-    };
-
-    quadVertices = {
-        {{-1.f, -1.f}, {-1.0f, -1.0f}},
-        {{1.f, -1.f}, {1.0f, -1.0f}},
-        {{1.f, 1.f}, {1.0f, 1.0f}},
-        {{-1.f, 1.f}, {-1.0f, 1.0f}}
-    };
-
-    circleCenters = {
-        {{-50.f, -50.f},4.f, {1.0f, 0.0f, 0.0f}}
-    };
-
-    quadIndices = {0,1,2,2,3,0};
+    worldData.instancedCount = 0;
+    worldData.instances = {};
+    worldData.meshes = {};
+    worldData.polygonOffset = 0;
 }
-
-
 
 void ProtoThiApp::initVulkan() {
     createInstance();
@@ -67,18 +35,20 @@ void ProtoThiApp::initVulkan() {
     swapChainManager = SwapChainManager{instance, windowManager.getWindow()};
     pickPhysicalDevice();
     createLogicalDevice();
+    commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
     swapChainManager.setDevice(device);
     swapChainManager.createSwapChain(physicalDevice, windowManager.getWindow());
-    swapChainManager.createImageViews();
-    pipelineManager.init(device, swapChainManager.getImageFormat());
-    swapChainManager.createFramebuffers(pipelineManager.getrenderPass());
+    swapChainManager.createDepthAttachments(physicalDevice);
+    swapChainManager.createIdAttachments(physicalDevice);
+    swapChainManager.createSeedAttachments(physicalDevice);
+    pipelineManager.init(device, swapChainManager.viewImages()[0].format);
+    swapChainManager.createFrameBuffers(pipelineManager.viewRenderPasses());
+    swapChainManager.createJFAAttachments(physicalDevice);
     pipelineManager.createPipelines();
-    createCommandPool();
-    bufferManager = BufferManager{device, physicalDevice, commandPool, graphicsQueue};
-    bufferManager.createCustomBuffers(vertices, indices, quadVertices, quadIndices, circleCenters);
-    bufferManager.createUniformBuffers();
-    pipelineManager.createDescriptors(bufferManager.getUniformBuffers());
-    createCommandBuffers();
+    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.viewCommandPool(), graphicsQueue};
+    bufferManager.createBuffers();
+    pipelineManager.createDescriptors(bufferManager, swapChainManager);
+    commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
     swapChainManager.createSyncObjects();
 }
 
@@ -88,15 +58,12 @@ void ProtoThiApp::cleanup() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    swapChainManager.cleanupSwapChain();
-
-    pipelineManager.~PipelineManager();
+    swapChainManager.cleanUp();
+    pipelineManager.cleanUp();
     vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
 
-    vkFreeCommandBuffers(device, commandPool,
-        static_cast<uint32_t>(commandBuffers.size()),
-        commandBuffers.data());
-    commandBuffers.clear();
+    commandBufferManager.cleanUpCommandBuffers(device);
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         
         vkDestroySemaphore(device, swapChainManager.getImageAvailableSemaphores()[i], nullptr);
@@ -107,17 +74,8 @@ void ProtoThiApp::cleanup() {
     }
 
     bufferManager.cleanUp();
-    // while(!graphicsPipelines.empty()){
-    //     vkDestroyPipeline(device, graphicsPipelines.back(), nullptr);
-    //     graphicsPipelines.pop_back();
-    // }
 
-    // while(!pipelineLayouts.empty()){
-    //     vkDestroyPipelineLayout(device, pipelineLayouts.back(), nullptr);
-    //     pipelineLayouts.pop_back();
-    // }
-
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    commandBufferManager.cleanUpCommandPool(device);
 
     vkDestroyDevice(device, nullptr);
 
@@ -128,9 +86,31 @@ void ProtoThiApp::cleanup() {
     vkDestroySurfaceKHR(instance, swapChainManager.getSurface(), nullptr);
     vkDestroyInstance(instance, nullptr);
 
-    
-
     glfwTerminate();
+}
+
+void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
+    std::span<InstanceData> lineInstances, std::span<MeshData> meshes){
+    worldData.instances.clear();
+    
+    worldData.instancedCount = circleInstances.size() + lineInstances.size();
+    worldData.polygonOffset = worldData.instancedCount;
+
+    worldData.instances.resize(circleInstances.size() + polygonInstances.size() + lineInstances.size());
+
+    InstanceData* dst = worldData.instances.data();
+
+    std::memcpy(dst, circleInstances.data(), circleInstances.size() * sizeof(InstanceData));
+    dst += circleInstances.size();
+    std::memcpy(dst, lineInstances.data(), lineInstances.size() * sizeof(InstanceData));
+    dst += lineInstances.size();
+    std::memcpy(dst, polygonInstances.data(), polygonInstances.size() * sizeof(InstanceData));
+
+    worldData.meshes.assign(meshes.begin(), meshes.end());
+    assert(worldData.meshes.size() == polygonInstances.size());
+    for(size_t i = 0; i < polygonInstances.size(); i++){
+        worldData.meshes[i].instanceIndex = worldData.polygonOffset + i;
+    }
 }
 
 void ProtoThiApp::drawFrame() {
@@ -140,7 +120,7 @@ void ProtoThiApp::drawFrame() {
     VkResult result = vkAcquireNextImageKHR(device, swapChainManager.getSwapChain(), UINT64_MAX, swapChainManager.getImageAvailableSemaphores()[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getrenderPass());
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("failed to acquire swap chain image!");
@@ -148,8 +128,13 @@ void ProtoThiApp::drawFrame() {
 
     vkResetFences(device, 1, &swapChainManager.getInFlightFences()[currentFrame]);
 
-    vkResetCommandBuffer(commandBuffers[currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex, bufferManager.getVertexBuffers(), bufferManager.getIndexBuffers(), bufferManager.getQuadBuffer(), bufferManager.getQuadIndexBuffer(), bufferManager.getCircleBuffers());
+    vkResetCommandBuffer(commandBufferManager.viewCommandBufferOnFrame(currentFrame), 0);
+
+    RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount};
+    FrameContext frameContext{imageIndex, clearColor, pipelineManager, swapChainManager};
+    pipelineManager.updateDescriptorSets(currentFrame, bufferManager, swapChainManager, imageIndex);
+
+    commandBufferManager.recordCommandBuffer(currentFrame, renderContext, frameContext);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -161,7 +146,7 @@ void ProtoThiApp::drawFrame() {
     submitInfo.pWaitDstStageMask = waitStages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &commandBufferManager.viewCommandBufferOnFrame(currentFrame);
 
     VkSemaphore signalSemaphores[] = {swapChainManager.getRenderFinishedSemaphores()[imageIndex]};
     submitInfo.signalSemaphoreCount = 1;
@@ -185,9 +170,10 @@ void ProtoThiApp::drawFrame() {
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-        framebufferResized = false;
-        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.getrenderPass());
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || windowManager.resizedFlag) {
+        windowManager.resizedFlag = false;
+        swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
+        pipelineManager.createDescriptors(bufferManager, swapChainManager);
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
     }

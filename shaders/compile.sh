@@ -15,16 +15,24 @@ $GLSLC "$VERT" -o "$VERT_OUT"
 echo "Compilando fragment shader..."
 $GLSLC "$FRAG" -o "$FRAG_OUT"
 
-VERT="$SHADERS_DIR/circle.vert"
-FRAG="$SHADERS_DIR/circle.frag"
-VERT_OUT="$SHADERS_DIR/circleVert.spv"
-FRAG_OUT="$SHADERS_DIR/circleFrag.spv"
+# ===== POST =====
+VERT="$SHADERS_DIR/post.vert"
+FRAG="$SHADERS_DIR/post.frag"
+VERT_OUT="$SHADERS_DIR/postVert.spv"
+FRAG_OUT="$SHADERS_DIR/postFrag.spv"
 
-echo "Compilando vertex shader..."
+echo "Compilando post vertex shader..."
 $GLSLC "$VERT" -o "$VERT_OUT"
 
-echo "Compilando fragment shader..."
+echo "Compilando post fragment shader..."
 $GLSLC "$FRAG" -o "$FRAG_OUT"
+
+# ===== JFA (COMPUTE) =====
+COMP="$SHADERS_DIR/jfa.comp"
+COMP_OUT="$SHADERS_DIR/jfaComp.spv"
+
+echo "Compilando JFA compute shader..."
+$GLSLC "$COMP" -o "$COMP_OUT"
 
 echo
 echo "✅ Compilación exitosa."

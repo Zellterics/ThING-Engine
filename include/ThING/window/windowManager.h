@@ -1,5 +1,4 @@
 #pragma once
-#include <ThING/core/detail.h>
 #include "GLFW/glfw3.h"
 class WindowManager{
 public:
@@ -7,10 +6,10 @@ public:
     ~WindowManager();
     GLFWwindow* getWindow() const {return window;}
     void getSize(int& width, int& height)const {glfwGetWindowSize(window, &width, &height);}
+    static bool resizedFlag;
 private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<ProtoThiApp*>(glfwGetWindowUserPointer(window));
-        detail::setResizedFlag(*app, true);
+        resizedFlag = true;
     }
     GLFWwindow* window = nullptr;
 };
