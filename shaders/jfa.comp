@@ -1,65 +1,97 @@
 #version 450
-
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(set = 0, binding = 0, rg32f) uniform image2D ping;
-layout(set = 0, binding = 1, rg32f) uniform image2D pong;
-layout(set = 0, binding = 2, r32ui) uniform uimage2D idImage;
-layout(set = 0, binding = 3, rg32f) uniform image2D seedImage;
+layout(set = 0, binding = 0, rgba32f) uniform image2D ping;
+layout(set = 0, binding = 1, rgba32f) uniform image2D pong;
+// rg = s1
+// ba = s2
+
+layout(set = 0, binding = 2, rg32i) uniform iimage2D idImage;
+// r = objectID
+// g = drawIndex
+
+layout(set = 0, binding = 3, rgba32f) uniform image2D seedImage;
+// rg = seed (pixel center), or (-1,-1)
 
 layout(push_constant) uniform Push {
     int jump;
     int readFromPing;
 } pc;
 
-void main() {
+vec4 loadSrc(ivec2 c) {
+    return (pc.readFromPing == 1)
+        ? imageLoad(ping, c)
+        : imageLoad(pong, c);
+}
+
+void storeDst(ivec2 c, vec4 v) {
+    if (pc.readFromPing == 1) imageStore(pong, c, v);
+    else                      imageStore(ping, c, v);
+}
+
+bool isValidSeed(vec2 s, ivec2 size) {
+    if (s.x < 0.0 || s.y < 0.0) return false;
+    if (s.x >= float(size.x) || s.y >= float(size.y)) return false;
+
+    vec2 f = fract(s);
+    return abs(f.x - 0.5) < 0.02 && abs(f.y - 0.5) < 0.02;
+}
+
+void main()
+{
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size  = imageSize(seedImage);
+    if (coord.x >= size.x || coord.y >= size.y) return;
 
-    if (coord.x >= size.x || coord.y >= size.y)
+    vec2 selfPos  = vec2(coord) + vec2(0.5);
+    vec2 selfSeed = imageLoad(seedImage, coord).xy;
+
+    int j = max(pc.jump, 0);
+
+    if (j == 0) {
+        vec2 s1 = vec2(-1.0);
+        if (isValidSeed(selfSeed, size))
+            s1 = selfSeed;
+
+        storeDst(coord, vec4(s1, -1.0, -1.0));
         return;
-
-    uint id = imageLoad(idImage, coord).r;
-    bool hasSeed = (id != 0u);
-
-    vec2 bestSeed = vec2(0.0);
-    float bestDist = 1e30;
-
-    if (hasSeed) {
-        bestSeed = imageLoad(seedImage, coord).xy;
-        bestDist = length(bestSeed - vec2(coord));
     }
+
+    vec4 prev = loadSrc(coord);
+
+    vec2  best1  = vec2(-1.0);
+    float bestD1 = 1e30;
+
+    vec2  best2  = vec2(-1.0);
+    float bestD2 = 1e30;
+
+    #define CONSIDER(cand) \
+        if (isValidSeed(cand, size)) { \
+            float d = length(cand - selfPos); \
+            if (d < bestD1) { \
+                bestD2 = bestD1; best2 = best1; \
+                bestD1 = d;      best1 = cand;  \
+            } else if (d < bestD2 && !all(equal(cand, best1))) { \
+                bestD2 = d; best2 = cand; \
+            } \
+        }
+
+    CONSIDER(prev.xy);
+    CONSIDER(prev.zw);
+
+    if (isValidSeed(selfSeed, size))
+        CONSIDER(selfSeed);
 
     for (int dy = -1; dy <= 1; dy++) {
         for (int dx = -1; dx <= 1; dx++) {
+            ivec2 n = coord + ivec2(dx, dy) * j;
+            if (n.x < 0 || n.y < 0 || n.x >= size.x || n.y >= size.y) continue;
 
-            if (dx == 0 && dy == 0)
-                continue;
-
-            ivec2 n = coord + ivec2(dx, dy) * pc.jump;
-
-            if (n.x < 0 || n.y < 0 || n.x >= size.x || n.y >= size.y)
-                continue;
-
-            vec2 candidate =
-                pc.readFromPing == 1
-                ? imageLoad(ping, n).xy
-                : imageLoad(pong, n).xy;
-
-            if (candidate == vec2(0.0))
-                continue;
-
-            float d = length(candidate - vec2(coord));
-
-            if (d < bestDist) {
-                bestDist = d;
-                bestSeed = candidate;
-            }
+            vec4 ns = loadSrc(n);
+            CONSIDER(ns.xy);
+            CONSIDER(ns.zw);
         }
     }
 
-    if (pc.readFromPing == 1)
-        imageStore(pong, coord, vec4(bestSeed, 0.0, 0.0));
-    else
-        imageStore(ping, coord, vec4(bestSeed, 0.0, 0.0));
+    storeDst(coord, vec4(best1, best2));
 }

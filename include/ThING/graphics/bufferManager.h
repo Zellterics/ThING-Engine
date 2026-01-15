@@ -24,8 +24,8 @@ public:
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void updateBuffer(VkFence& inFlightFences, const void* data, VkDeviceSize newBufferSize, 
         uint32_t frameIndex, VkBufferUsageFlags usage, BufferType type);
-    void updateCustomBuffers(std::vector<Vertex>& vertices, std::vector<uint16_t>& indices, 
-                std::vector<InstanceData>& instanceData, std::vector<VkFence>& inFlightFences, uint32_t frameIndex);
+    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, std::span<InstanceData> instanceData, 
+        std::span<SSBO> ssboData ,std::span<VkFence> inFlightFences, uint32_t frameIndex);
     void updateIndirectBuffers(std::span<const VkDrawIndexedIndirectCommand> commands, std::vector<VkFence>& inFlightFences, uint32_t frameIndex);
     void updateUniformBuffers(const VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex);
     void cleanUp();
@@ -51,6 +51,8 @@ private:
 
     std::vector<DynamicBuffer<MAX_FRAMES_IN_FLIGHT>> stagingBuffers;
     UniformBufferObject ubo;
+    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> ssbo;
+    
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> vertexBuffers;
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> indexBuffers;
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers;

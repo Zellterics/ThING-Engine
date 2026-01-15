@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <span>
 #include <sys/stat.h>
 #include <utility>
 #include <vector>
@@ -75,7 +76,8 @@ void ThING::API::mainLoop() {
         updateCallback(*this, fps);
         //RENDER
         ImGui::Render();
-        app.recordWorldData(circleInstances, polygonInstances, polygonMeshes);
+        app.recordWorldData(circleInstances, polygonInstances,
+            std::span(reinterpret_cast<InstanceData*>(lineInstances.data()), lineInstances.size()), polygonMeshes);
         app.renderFrame();
     }
     vkDeviceWaitIdle(app.device);
@@ -95,6 +97,20 @@ Entity ThING::API::addCircle(InstanceData&& instance){
     }
 };
 
+Entity ThING::API::addLine(LineData&& instance){
+    Entity e;
+    if(lineFreeList.empty()){
+        lineInstances.push_back(std::move(instance));
+        e = {static_cast<uint32_t>(lineInstances.size() - 1), InstanceType::Line};
+        return e;
+    } else {
+        e = lineFreeList.back();
+        lineFreeList.pop_back();
+        lineInstances[e.index] = std::move(instance);
+        return e;
+    }
+}
+
 //PUBLIC
 
 uint32_t ThING::API::getInstanceCount(InstanceType type){
@@ -104,6 +120,9 @@ uint32_t ThING::API::getInstanceCount(InstanceType type){
 
         case InstanceType::Circle:
             return circleInstances.size();
+        
+        case InstanceType::Line:
+            return lineInstances.size();
 
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
@@ -128,9 +147,14 @@ std::span<InstanceData> ThING::API::getInstanceVector(InstanceType type){
     switch (type) {
         case InstanceType::Polygon: return polygonInstances;
         case InstanceType::Circle: return circleInstances;
+        case InstanceType::Line: return {reinterpret_cast<InstanceData*>(lineInstances.data()), lineInstances.size()};
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }
+}
+
+std::span<LineData> ThING::API::getLineVector(){
+    return lineInstances;
 }
 
 void ThING::API::setZoom(float zoom){
@@ -142,13 +166,13 @@ void ThING::API::setOffset(glm::vec2 offset){
 }
 
 void ThING::API::setBackgroundColor(glm::vec4 color){
-    app.clearColor.color.float32[0] = color.x;
-    app.clearColor.color.float32[1] = color.y;
-    app.clearColor.color.float32[2] = color.z;
-    app.clearColor.color.float32[3] = color.w;
+    app.clearColor[0].color.float32[0] = color.x;
+    app.clearColor[0].color.float32[1] = color.y;
+    app.clearColor[0].color.float32[2] = color.z;
+    app.clearColor[0].color.float32[3] = color.w;
 }
 
-Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind){
+Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint16_t> ind){
     Entity e;
 
     InstanceData tempInstance;
@@ -178,8 +202,6 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
     } else {
         polygonMeshes.push_back(std::move(tempMesh));
     }
-    // app.vertices.reserve(app.vertices.size() + ver.size()); Probably slower than letting the vector grow on it's own
-    // app.indices.reserve(app.indices.size() + ind.size());
     app.vertices.insert(app.vertices.end(), ver.begin(), ver.end());
     app.indices.insert(app.indices.end(), ind.begin(), ind.end());
     return e;
@@ -193,6 +215,7 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
     tempInstance.scale = scale;
     tempInstance.type = InstanceType::Polygon;
     tempInstance.color = color;
+    tempInstance.drawIndex = 100;
 
     if(polygonFreeList.empty()){
         polygonInstances.push_back(std::move(tempInstance));
@@ -241,6 +264,14 @@ bool ThING::API::exists(const Entity e){
                 return false;
             }
             return true;
+        case InstanceType::Line:
+            if(e.index >= lineInstances.size()){
+                return false;
+            }
+            if(!lineInstances[e.index].alive){
+                return false;
+            }
+            return true;
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }
@@ -259,6 +290,10 @@ bool ThING::API::deleteInstance(const Entity e){
             circleInstances[e.index].alive = false;
             circleFreeList.push_back(e);
             return true;
+        case InstanceType::Line:
+            lineInstances[e.index].alive = false;
+            lineFreeList.push_back(e);
+            return true;
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }
@@ -272,6 +307,9 @@ InstanceData& ThING::API::getInstance(const Entity e){
         case InstanceType::Circle: 
             assert(e.index < circleInstances.size() && "Invalid Entity passed to getInstance"); 
             return circleInstances[e.index];
+        case InstanceType::Line:
+            assert(e.index < lineInstances.size() && "Invalid Entity passed to getInstance");
+            return *reinterpret_cast<InstanceData*>(&lineInstances[e.index]);
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }
@@ -296,4 +334,14 @@ Entity ThING::API::addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, g
         i--;
     }
     return addPolygon(pos, color, scale, std::move(vertices), std::move(indices));
+}
+
+Entity ThING::API::addLine(glm::vec2 point1, glm::vec2 point2, float width){
+    LineData tempInstance;
+    tempInstance.point1 = point1;
+    tempInstance.point2 = point2;
+    tempInstance.thickness = width;
+    tempInstance.type = InstanceType::Line;
+    tempInstance.color = {1,1,0,1};
+    return addLine(std::move(tempInstance));
 }

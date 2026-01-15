@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/swapChainManager.h"
 #include <array>
 #include <cstddef>
@@ -32,9 +33,9 @@ public:
 
 
     void createPipelines();
-    void createDescriptors(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager);
-    void createDescriptorSets(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager);
-    void updateDescriptorSets(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex);
+    void createDescriptors(BufferManager& bufferManager, SwapChainManager& swapChainManager);
+    void createDescriptorSets(BufferManager& bufferManager, SwapChainManager& swapChainManager);
+    void updateDescriptorSets(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex);
 
     void cleanUp();
 
@@ -62,8 +63,8 @@ private:
     void createJFADescriptorSets(SwapChainManager& swapChainManager);
     void writeJFADescriptorSet( uint32_t frameIndex, const RenderImage& ping, const RenderImage& pong, const RenderImage& idImage, const RenderImage& seedImage);
 
-    void createDescriptorSet(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager, PipelineType type);
-    void updateDescriptorSet(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type);
+    void createDescriptorSet(BufferManager& bufferManager, SwapChainManager& swapChainManager, PipelineType type);
+    void updateDescriptorSet(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type);
 
     void createDescriptorPool();
     
@@ -90,7 +91,8 @@ private:
     inline static constexpr DescriptorBindingDesc postBindings[] = {
         {DescriptorType::UniformBuffer, 0, VK_SHADER_STAGE_FRAGMENT_BIT},
         {DescriptorType::CombinedImageSampler, 1, VK_SHADER_STAGE_FRAGMENT_BIT},
-        {DescriptorType::CombinedImageSampler, 2, VK_SHADER_STAGE_FRAGMENT_BIT}
+        {DescriptorType::CombinedImageSampler, 2, VK_SHADER_STAGE_FRAGMENT_BIT},
+        {DescriptorType::StorageBuffer, 3, VK_SHADER_STAGE_FRAGMENT_BIT}
     };
 
     inline static constexpr DescriptorBindingDesc JFABindings[] = {

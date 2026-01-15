@@ -1,5 +1,6 @@
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
+#include <vulkan/vulkan_core.h>
 
 void PipelineManager::createPostGraphicsPipeline() {
     auto vertShaderCode = readFile("../shaders/postVert.spv");
@@ -58,7 +59,7 @@ void PipelineManager::createPostGraphicsPipeline() {
         VK_COLOR_COMPONENT_A_BIT;
 
     colorBlendAttachment.blendEnable = VK_TRUE;
-    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
 

@@ -19,8 +19,7 @@ void UI(ThING::API& api, FPSCounter& fps){
     ImGui::GetIO().IniFilename = nullptr;
     ImGui::SetNextWindowBgAlpha(0.f);
 
-    ImGuiID dockspaceID =
-        ImGui::DockSpaceOverViewport(
+    ImGuiID dockspaceID = ImGui::DockSpaceOverViewport(
             0,
             ImGui::GetMainViewport(),
             ImGuiDockNodeFlags_PassthruCentralNode |
@@ -31,23 +30,15 @@ void UI(ThING::API& api, FPSCounter& fps){
     if(first){
         first = false;
 
-        monocraft = ImGui::GetIO().Fonts->AddFontFromFileTTF(
-            "../external/Monocraft.ttf", 18.0f
-        );
+        monocraft = ImGui::GetIO().Fonts->AddFontFromFileTTF("../external/Monocraft.ttf", 18.0f);
         IM_ASSERT(monocraft && "Failed to load font!");
 
         ImGui::DockBuilderRemoveNode(dockspaceID);
         ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_CentralNode);
-        ImGui::DockBuilderSetNodeSize(
-            dockspaceID,
-            ImGui::GetMainViewport()->Size
-        );
+        ImGui::DockBuilderSetNodeSize(dockspaceID, ImGui::GetMainViewport()->Size);
 
         ImGuiID dock_id_left = 0, dock_id_right = 0;
-        ImGui::DockBuilderSplitNode(
-            dockspaceID, ImGuiDir_Left, 0.25f,
-            &dock_id_left, &dock_id_right
-        );
+        ImGui::DockBuilderSplitNode( dockspaceID, ImGuiDir_Left, 0.25f, &dock_id_left, &dock_id_right);
         ImGui::DockBuilderDockWindow("Debug Window", dock_id_left);
 
         ImGui::DockBuilderFinish(dockspaceID);
@@ -56,17 +47,12 @@ void UI(ThING::API& api, FPSCounter& fps){
     ImGuiStyle& style = ImGui::GetStyle();
     style.WindowBorderSize = 0.0f;
     style.Colors[ImGuiCol_DockingEmptyBg] = {1,1,1,0};
-    style.Colors[ImGuiCol_WindowBg]       = {.01f,.01f,.01f,1};
-    style.Colors[ImGuiCol_FrameBg]        = {0,0,0,1};
-    style.Colors[ImGuiCol_Border]          = {1,1,1,0};
+    style.Colors[ImGuiCol_WindowBg] = {.01f,.01f,.01f,1};
+    style.Colors[ImGuiCol_FrameBg] = {0,0,0,1};
+    style.Colors[ImGuiCol_Border] = {1,1,1,0};
     style.WindowMinSize = ImVec2(200, 200);
 
-    ImGui::Begin(
-        "Debug Window",
-        nullptr,
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoTitleBar
-    );
+    ImGui::Begin("Debug Window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
 
     ImVec2 dockedSize = ImGui::GetWindowSize();
 
@@ -76,8 +62,16 @@ void UI(ThING::API& api, FPSCounter& fps){
     ImGui::PushFont(monocraft);
 
     ImGui::Text("Circles: %u", api.getInstanceCount(InstanceType::Circle));
+    ImGui::PushItemWidth(150.0f);
     ImGui::SliderInt("FPS", &speed, 10, 420);
+    ImGui::PopItemWidth();
     Slider2DFloat("Gravity", &gravity[0], &gravity[1], -5, 5, -5, 5);
+    if(gravity[0] < .2 && gravity[0] > -.2){
+        gravity[0] = 0;
+    }
+    if(gravity[1] < .2 && gravity[1] > -.2){
+        gravity[1] = 0;
+    }
     ImGui::SliderFloat("Stiffness", &stiffness, 0.01f, 0.4f, "%.3f");
 
     ImGui::Text("Real FPS: %d", (int)(fps.getFPS() + 1));
@@ -92,12 +86,7 @@ void UI(ThING::API& api, FPSCounter& fps){
             sides,
             {x,y},
             {40,40},
-            {
-                getRandomNumber(0.f,1.f),
-                getRandomNumber(0.f,1.f),
-                getRandomNumber(0.f,1.f),
-                1.f
-            }
+            {getRandomNumber(0.f,1.f), getRandomNumber(0.f,1.f), getRandomNumber(0.f,1.f), 1.f}
         );
     }
 
@@ -118,36 +107,14 @@ void UI(ThING::API& api, FPSCounter& fps){
             bool open = openedWindows[e] != 0;
 
             if(open){
-                ImGui::Begin(
-                    ("Polygon " + std::to_string(i)).c_str(),
-                    &open,
-                    ImGuiWindowFlags_NoMove |
-                    ImGuiWindowFlags_NoResize
-                );
+                ImGui::Begin( ("Polygon " + std::to_string(i)).c_str(), &open, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
 
                 ImGui::PushID(i);
 
-                ImGui::SliderFloat(
-                    "Rotation",
-                    &polys[i].rotation,
-                    -10.f, 10.f
-                );
+                ImGui::SliderFloat("Rotation", &polys[i].rotation, -10.f, 10.f);
 
-                Slider2DFloat(
-                    "Scale",
-                    &polys[i].scale.x,
-                    &polys[i].scale.y,
-                    -500, 500,
-                    -500, 500
-                );
-
-                Slider2DFloat(
-                    "Position",
-                    &polys[i].position.x,
-                    &polys[i].position.y,
-                    -500, 500,
-                    -500, 500
-                );
+                Slider2DFloat("Scale", &polys[i].scale.x, &polys[i].scale.y, -500, 500, -500, 500);
+                Slider2DFloat("Position", &polys[i].position.x, &polys[i].position.y, -500, 500, -500, 500);
 
                 if(ImGui::Button("Delete")){
                     api.deleteInstance(e);

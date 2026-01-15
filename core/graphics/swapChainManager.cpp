@@ -60,6 +60,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwin
 
     vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
     images.resize(imageCount);
+    depthImages.resize(imageCount);
 
     std::vector<VkImage> swapchainImages;
     swapchainImages.resize(imageCount);
@@ -87,6 +88,7 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
     cleanUp();
 
     createSwapChain(physicalDevice, window);
+    createDepthAttachments(physicalDevice);
     createIdAttachments(physicalDevice);
     createSeedAttachments(physicalDevice);
     createFrameBuffers(renderPasses);
@@ -173,9 +175,9 @@ void SwapChainManager::createImageView(RenderImage& image){
 }
 
 void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
-    jfaPing.format = VK_FORMAT_R32G32_SFLOAT;
+    jfaPing.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     jfaPing.extent = swapChainExtent;
-    jfaPong.format = VK_FORMAT_R32G32_SFLOAT;
+    jfaPong.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     jfaPong.extent = swapChainExtent;
     createImage(jfaPing, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     createImage(jfaPong, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
@@ -186,7 +188,7 @@ void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
 }
 
 void SwapChainManager::createSeedAttachments(VkPhysicalDevice physicalDevice){
-    seedImages.format = VK_FORMAT_R32G32_SFLOAT;
+    seedImages.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     seedImages.extent = swapChainExtent;
     createImage(seedImages, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
     createImageMemory(seedImages, physicalDevice);
@@ -194,13 +196,39 @@ void SwapChainManager::createSeedAttachments(VkPhysicalDevice physicalDevice){
 }
 
 void SwapChainManager::createIdAttachments(VkPhysicalDevice physicalDevice) {
-    idImages.format = VK_FORMAT_R32_UINT;
+    idImages.format = VK_FORMAT_R32G32_SINT;
     idImages.extent = swapChainExtent;
     createImage(idImages, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
     createImageMemory(idImages, physicalDevice);
     createImageView(idImages);
 }
 
+void SwapChainManager::createDepthAttachments(VkPhysicalDevice physicalDevice){
+    for (size_t i = 0; i < depthImages.size(); i++){
+        depthImages[i].format = VK_FORMAT_D32_SFLOAT;
+        depthImages[i].extent = swapChainExtent;
+        createImage(depthImages[i], VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        createImageMemory(depthImages[i], physicalDevice);
+        createDepthImageView(depthImages[i]);
+    }
+}
+
+void SwapChainManager::createDepthImageView(RenderImage& image){
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image.image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = image.format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device, &viewInfo, nullptr, &image.view) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create ID image view!");
+    }
+}
 
 void SwapChainManager::createBaseImageViews() {
     for (size_t i = 0; i < images.size(); i++) {
@@ -237,6 +265,11 @@ void SwapChainManager::cleanUp(){
     }
     for (auto image : images) {
         vkDestroyImageView(device, image.view, nullptr);
+    }
+    for (auto image : depthImages) {
+        vkDestroyImageView(device, image.view, nullptr);
+        vkDestroyImage(device, image.image, nullptr);
+        vkFreeMemory(device, image.Memory, nullptr);
     }
     vkDestroyImageView(device, idImages.view, nullptr);
     vkDestroyImage(device, idImages.image, nullptr);
@@ -311,10 +344,11 @@ void SwapChainManager::createBaseFramebuffers(const VkRenderPass& renderPass) {
     baseFramebuffers.resize(images.size());
 
     for (size_t i = 0; i < images.size(); i++) {
-        std::array<VkImageView, 3> attachments = {
+        std::array<VkImageView, 4> attachments = {
             images[i].view,
             idImages.view,
-            seedImages.view
+            seedImages.view,
+            depthImages[i].view
         };
 
         VkFramebufferCreateInfo framebufferInfo{};

@@ -1,12 +1,12 @@
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
 #include <cstdint>
+#include <cstring>
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
 #include "ThING/graphics/swapChainManager.h"
 #include "ThING/types/contexts.h"
-#include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
 #include "imgui.h"
 
@@ -14,12 +14,16 @@
 #include "backends/imgui_impl_vulkan.h"
 #include "glm/fwd.hpp"
 
-ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, "vulkan"){
+ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE.c_str()){
     zoom = 1;
     offset = {0, 0};
-    clearColor = {{{0.0f, 0.0f, 0.0f, 0.0f}}}; // STANDAR = BLACK
+    clearColor.resize(4);
+    clearColor[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[2].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[3].depthStencil = {1.0f, 0};
     currentFrame = 0;
-    worldData.circleCount = 0;
+    worldData.instancedCount = 0;
     worldData.instances = {};
     worldData.meshes = {};
     worldData.polygonOffset = 0;
@@ -34,6 +38,7 @@ void ProtoThiApp::initVulkan() {
     commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
     swapChainManager.setDevice(device);
     swapChainManager.createSwapChain(physicalDevice, windowManager.getWindow());
+    swapChainManager.createDepthAttachments(physicalDevice);
     swapChainManager.createIdAttachments(physicalDevice);
     swapChainManager.createSeedAttachments(physicalDevice);
     pipelineManager.init(device, swapChainManager.viewImages()[0].format);
@@ -42,7 +47,7 @@ void ProtoThiApp::initVulkan() {
     pipelineManager.createPipelines();
     bufferManager = BufferManager{device, physicalDevice, commandBufferManager.viewCommandPool(), graphicsQueue};
     bufferManager.createBuffers();
-    pipelineManager.createDescriptors(bufferManager.viewBuffers(BufferType::Uniform), swapChainManager);
+    pipelineManager.createDescriptors(bufferManager, swapChainManager);
     commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
     swapChainManager.createSyncObjects();
 }
@@ -84,20 +89,26 @@ void ProtoThiApp::cleanup() {
     glfwTerminate();
 }
 
-void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, std::span<MeshData> meshes){
+void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
+    std::span<InstanceData> lineInstances, std::span<MeshData> meshes){
     worldData.instances.clear();
     
-    worldData.circleCount = circleInstances.size();
-    worldData.polygonOffset = worldData.circleCount;
+    worldData.instancedCount = circleInstances.size() + lineInstances.size();
+    worldData.polygonOffset = worldData.instancedCount;
 
-    worldData.instances.reserve(circleInstances.size() + polygonInstances.size());
+    worldData.instances.resize(circleInstances.size() + polygonInstances.size() + lineInstances.size());
 
-    worldData.instances.insert(worldData.instances.end(), circleInstances.begin(), circleInstances.end());
-    worldData.instances.insert(worldData.instances.end(), polygonInstances.begin(), polygonInstances.end());
+    InstanceData* dst = worldData.instances.data();
+
+    std::memcpy(dst, circleInstances.data(), circleInstances.size() * sizeof(InstanceData));
+    dst += circleInstances.size();
+    std::memcpy(dst, lineInstances.data(), lineInstances.size() * sizeof(InstanceData));
+    dst += lineInstances.size();
+    std::memcpy(dst, polygonInstances.data(), polygonInstances.size() * sizeof(InstanceData));
 
     worldData.meshes.assign(meshes.begin(), meshes.end());
     assert(worldData.meshes.size() == polygonInstances.size());
-    for(int i = 0; i < polygonInstances.size(); i++){
+    for(size_t i = 0; i < polygonInstances.size(); i++){
         worldData.meshes[i].instanceIndex = worldData.polygonOffset + i;
     }
 }
@@ -121,7 +132,7 @@ void ProtoThiApp::drawFrame() {
 
     RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount};
     FrameContext frameContext{imageIndex, clearColor, pipelineManager, swapChainManager};
-    pipelineManager.updateDescriptorSets(currentFrame, bufferManager.viewBuffer(BufferType::Uniform, currentFrame), swapChainManager, imageIndex);
+    pipelineManager.updateDescriptorSets(currentFrame, bufferManager, swapChainManager, imageIndex);
 
     commandBufferManager.recordCommandBuffer(currentFrame, renderContext, frameContext);
 
@@ -162,7 +173,7 @@ void ProtoThiApp::drawFrame() {
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || windowManager.resizedFlag) {
         windowManager.resizedFlag = false;
         swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
-        pipelineManager.createDescriptors(bufferManager.viewBuffers(BufferType::Uniform), swapChainManager);
+        pipelineManager.createDescriptors(bufferManager, swapChainManager);
     } else if (result != VK_SUCCESS) {
         throw std::runtime_error("failed to present swap chain image!");
     }

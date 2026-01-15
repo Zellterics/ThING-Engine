@@ -2,6 +2,7 @@
 
 #include "ThING/types/renderData.h"
 #include <cstdint>
+#include <span>
 #include <vulkan/vulkan_core.h>
 
 class PipelineManager;
@@ -12,7 +13,7 @@ struct MeshData;
 
 struct FrameContext {
     uint32_t imageIndex;
-    VkClearValue clearColor;
+    std::span<VkClearValue> clearColor;
     const PipelineManager& pipelineManager;
     const SwapChainManager& swapChainManager;
 };

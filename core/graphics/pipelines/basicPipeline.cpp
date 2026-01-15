@@ -99,6 +99,14 @@ void PipelineManager::createBaseGraphicsPipeline(){
         seedColorBlendAttachment
     };
 
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.stencilTestEnable = VK_FALSE;
+
     VkPipelineColorBlendStateCreateInfo basicColorBlending{};
     basicColorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     basicColorBlending.logicOpEnable = VK_FALSE;
@@ -143,6 +151,7 @@ void PipelineManager::createBaseGraphicsPipeline(){
     basicPipelineInfo.renderPass = renderPasses[toIndex(RenderPassType::Base)];
     basicPipelineInfo.subpass = 0;
     basicPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    basicPipelineInfo.pDepthStencilState = &depthStencil;
 
     if (vkCreateGraphicsPipelines(
             device, 
@@ -180,6 +189,9 @@ void PipelineManager::createDescriptorSetLayout(PipelineType type) {
                 break;
             case DescriptorType::StorageImage:
                 binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                break;
+            case DescriptorType::StorageBuffer:
+                binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
                 break;
             default:
                 std::unreachable();

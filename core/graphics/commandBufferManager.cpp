@@ -71,14 +71,9 @@ void CommandBufferManager::cmdBeginBaseRenderPass(VkCommandBuffer& commandBuffer
     renderPassInfo.framebuffer = frameContext.swapChainManager.viewBaseFrameBuffers()[frameContext.imageIndex];
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
-    static std::array<VkClearValue, 3> clearColor = {
-        frameContext.clearColor,
-        {{0.0f, 0.0f, 0.0f, 0.0f}}, // make initial variable an array later, don't have static here
-        {{0.0f, 0.0f, 0.0f, 0.0f}}
-    };
-    clearColor[0] = frameContext.clearColor;
-    renderPassInfo.clearValueCount = 3;
-    renderPassInfo.pClearValues = clearColor.data();
+
+    renderPassInfo.clearValueCount = frameContext.clearColor.size();
+    renderPassInfo.pClearValues = frameContext.clearColor.data();
     
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -92,7 +87,7 @@ void CommandBufferManager::cmdBeginImGuiRenderPass(VkCommandBuffer& commandBuffe
     renderPassInfo.renderArea.extent = frameContext.swapChainManager.getExtent();
 
     renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &frameContext.clearColor;
+    renderPassInfo.pClearValues = &frameContext.clearColor[0];
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
@@ -414,7 +409,7 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
         .indexBuffer = BufferType::QuadIndex,
         .indexCount = QUAD_INDICES.size(),
         .indexOffset = 0,
-        .instanceCount = static_cast<uint32_t>(renderContext.worldData.circleCount),
+        .instanceCount = static_cast<uint32_t>(renderContext.worldData.instancedCount),
         .instanceOffset = 0,
         
     };
@@ -424,7 +419,7 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
         transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewIdImages(), frameContext);
         transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewSeedImages(), frameContext);
         transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewJFAPingImages(), frameContext);
-        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewJFAPingImages(), frameContext);
+        transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewJFAPongImages(), frameContext);
         layoutsInitialized[currentFrame] = true;
     }
     cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Base);

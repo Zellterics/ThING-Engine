@@ -64,7 +64,7 @@ private:
     // Api Variables
     float zoom;
     glm::vec2 offset;
-    VkClearValue clearColor;
+    std::vector<VkClearValue> clearColor;
 
     void initVulkan();
     void initImGui();
@@ -73,7 +73,8 @@ private:
     void renderFrame();
     void cleanup();
 
-    void recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, std::span<MeshData> meshes);
+    void recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
+        std::span<InstanceData> lineInstances, std::span<MeshData> meshes);
     
     void createInstance();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -91,7 +92,8 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
+        VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
         #ifdef DEBUG
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
         #endif

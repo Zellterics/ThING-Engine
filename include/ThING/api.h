@@ -25,11 +25,13 @@ namespace ThING{
         void getWindowSize(int* x, int* y);
         Entity addCircle(glm::vec2 pos, float size, glm::vec4 color);
         std::span<InstanceData> getInstanceVector(InstanceType type);
+        std::span<LineData> getLineVector();
         void setZoom(float zoom);
         void setOffset(glm::vec2 offset);
         void setBackgroundColor(glm::vec4 color);
-        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>& ver, std::vector<uint16_t>& ind);
+        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint16_t> ind);
         Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
+        Entity addLine(glm::vec2 point1, glm::vec2 point2, float width);
         bool exists(const Entity e);
         bool deleteInstance(const Entity e);
         InstanceData& getInstance(const Entity e);
@@ -40,16 +42,20 @@ namespace ThING{
     private:
         Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
         Entity addCircle(InstanceData&& instance);
+        Entity addLine(LineData&& line);
         void cleanRenderData();
 
         void mainLoop();
 
         std::vector<InstanceData> circleInstances;
+        std::vector<LineData> lineInstances;
         std::vector<InstanceData> polygonInstances;
         std::vector<MeshData> polygonMeshes;
 
         std::vector<Entity> circleFreeList;
+        std::vector<Entity> lineFreeList;
         std::vector<Entity> polygonFreeList;
+
 
         std::function<void(ThING::API&, FPSCounter&)> updateCallback;
         std::function<void(ThING::API&, FPSCounter&)> uiCallback;

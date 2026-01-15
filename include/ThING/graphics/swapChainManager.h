@@ -15,6 +15,7 @@ public:
     void recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses);
     void createSurface(VkInstance& instance, GLFWwindow* window);
     
+    void createDepthAttachments(VkPhysicalDevice physicalDevice);
     void createIdAttachments(VkPhysicalDevice physicalDevice);
     void createSeedAttachments(VkPhysicalDevice physicalDevice);
     void createJFAAttachments(VkPhysicalDevice physicalDevice);
@@ -59,6 +60,7 @@ private:
     void createImageView(RenderImage& image);
 
     void createBaseImageViews();
+    void createDepthImageView(RenderImage& image);
 
     VkDevice device;
     VkSurfaceKHR surface;
@@ -70,6 +72,7 @@ private:
     std::vector<VkFramebuffer> imGuiFramebuffers;
 
     std::vector<RenderImage> images;
+    std::vector<RenderImage> depthImages;
     /**
      * @note idImages, seedImages, jfaPing, jfaPong are swapchain global by design,
      * as they are part of the per frame process of the Jump Flood Algorithm,

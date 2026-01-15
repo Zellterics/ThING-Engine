@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include "physicsObject.h"
 #include <cstdint>
+#include <span>
 
 void update(ThING::API& api, FPSCounter& fps){
     std::span<InstanceData> circleInstances = api.getInstanceVector(InstanceType::Circle);
@@ -26,67 +27,65 @@ void update(ThING::API& api, FPSCounter& fps){
     const float SMALLER_RADIUS = 2;
 
     // ===== CLICK EVENTS START =====
-    if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
-       ImGui::IsMouseDragging(ImGuiMouseButton_Left))
-    {
-        ImVec2 tempPosition = ImGui::GetMousePos();
-        glm::vec2 pos = {
-            tempPosition.x - windowSize.width,
-            tempPosition.y - windowSize.height
-        };
+    ImGuiIO& io = ImGui::GetIO();
 
-        if(pos.x > -windowSize.width + dockedSizeX + 5){
+    if (!io.WantCaptureMouse){
+        if(ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseDragging(ImGuiMouseButton_Left)){
+            ImVec2 tempPosition = ImGui::GetMousePos();
+            glm::vec2 pos = {
+                tempPosition.x - windowSize.width,
+                tempPosition.y - windowSize.height
+            };
 
-            float circleSize = getRandomNumber(SMALLER_RADIUS, BIGGER_RADIUS);
-            count++;
+            if(pos.x > -windowSize.width + dockedSizeX + 5){
 
-            Entity e = api.addCircle(pos, circleSize, {0,0,1,1});
-            circleInstances = api.getInstanceVector(InstanceType::Circle);
-            api.getInstance(e).outlineSize  = 0;
-            api.getInstance(e).outlineColor = {1,0,0,1};
+                float circleSize = getRandomNumber(SMALLER_RADIUS, BIGGER_RADIUS);
+                count++;
+                // glm::vec4 color = {getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), 1};
 
-            if(speed < 100){
-                api.getInstance(e).objectID = count;
-            }
-            
-            if (e.index < circlePhysics.size()) {
-                circlePhysics[e.index] = {pos, pos, {0.f, 0.f}};
-            } else {
-                circlePhysics.push_back({pos, pos, {0.f, 0.f}});
+                Entity e = api.addCircle(pos, circleSize, {0,0,1,1.f});
+                circleInstances = api.getInstanceVector(InstanceType::Circle);        
+
+                api.getInstance(e).outlineSize = 5;
+                api.getInstance(e).outlineColor = {0, 0, 1, .4f};
+                
+                if (e.index < circlePhysics.size()) {
+                    circlePhysics[e.index] = {pos, pos, {0.f, 0.f}};
+                } else {
+                    circlePhysics.push_back({pos, pos, {0.f, 0.f}});
+                }
             }
         }
+
+        if(ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Right)){
+            ImVec2 tempPosition = ImGui::GetMousePos();
+            glm::vec2 p = {
+                tempPosition.x - windowSize.width,
+                tempPosition.y - windowSize.height
+            };
+
+            Entity hit = INVALID_ENTITY;
+
+            for (uint32_t i = 0; i < circleInstances.size(); i++) {
+                const InstanceData& c = circleInstances[i];
+
+                if(!c.alive) continue;
+
+                glm::vec2 d = p - c.position;
+                if (glm::dot(d, d) <= c.scale.x * c.scale.x) {
+                    hit = {i, InstanceType::Circle};
+                    break;
+                }
+            }
+
+            if (api.exists(hit)) {
+                circlePhysics[hit.index] = {};
+
+                api.deleteInstance(hit);
+            }
+        }
+        // ===== CLICK EVENTS ENDS =====
     }
-
-    if(ImGui::IsMouseClicked(ImGuiMouseButton_Right) ||
-       ImGui::IsMouseDragging(ImGuiMouseButton_Right))
-    {
-        ImVec2 tempPosition = ImGui::GetMousePos();
-        glm::vec2 p = {
-            tempPosition.x - windowSize.width,
-            tempPosition.y - windowSize.height
-        };
-
-        Entity hit = INVALID_ENTITY;
-
-        for (uint32_t i = 0; i < circleInstances.size(); i++) {
-            const InstanceData& c = circleInstances[i];
-
-            if(!c.alive) continue;
-
-            glm::vec2 d = p - c.position;
-            if (glm::dot(d, d) <= c.scale.x * c.scale.x) {
-                hit = {i, InstanceType::Circle};
-                break;
-            }
-        }
-
-        if (api.exists(hit)) {
-            circlePhysics[hit.index] = {};
-
-            api.deleteInstance(hit);
-        }
-    }
-    // ===== CLICK EVENTS ENDS =====
 
     const int steps = 4;
     const float sub_dt = simSpeed / (float)steps;
@@ -117,13 +116,13 @@ void update(ThING::API& api, FPSCounter& fps){
     }
 
     for (int i = 0; i < circleAmount; i++){
-        if(!circleInstances[i].alive) continue;
+        if(!circleInstances[i].alive) 
+            continue;
 
         int gridX = ((circleInstances[i].position.x + windowSize.width)  / 2) / BIGGER_RADIUS;
         int gridY = ((circleInstances[i].position.y + windowSize.height) / 2) / BIGGER_RADIUS;
 
-        if (gridX >= 0 && gridX < gridWidth &&
-            gridY >= 0 && gridY < gridHeight)
+        if (gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight)
         {
             circleID[(gridY * gridWidth) + gridX].push_back(i);
         }
@@ -132,13 +131,15 @@ void update(ThING::API& api, FPSCounter& fps){
     for (int s = steps; s; s--){
 
         for(uint32_t i = 0; i < circlePhysics.size(); i++){
-            if(!circleInstances[i].alive) continue;
+            if(!circleInstances[i].alive) 
+                continue;
             circlePhysics[i].accelerate({gravity[0], gravity[1]});
         }
 
         collissionCount = 0;
         for(int i = 0; i < circleAmount; i++){
-            if(!circleInstances[i].alive) continue;
+            if(!circleInstances[i].alive) 
+                continue;
 
             circlePhysics[i].updatePos(sub_dt);
             circleInstances[i].position = circlePhysics[i].currentPos;
@@ -177,7 +178,8 @@ void update(ThING::API& api, FPSCounter& fps){
         }
 
         for(int i = 0; i < circleAmount; i++){
-            if(!circleInstances[i].alive) continue;
+            if(!circleInstances[i].alive) 
+                continue;
 
             const glm::vec2 minBound{-windowSize.width + dockedSizeX, -windowSize.height};
             const glm::vec2 maxBound{ windowSize.width, windowSize.height};
@@ -196,5 +198,36 @@ void update(ThING::API& api, FPSCounter& fps){
             if (circlePhysics[i].currentPos.y > maxBound.y - r)
                 circlePhysics[i].currentPos.y = maxBound.y - r;
         }
+    }
+    static std::vector<uint32_t> aliveCircles;
+    aliveCircles.clear();
+
+    for (uint32_t i = 0; i < circleInstances.size(); i++){
+        if(circleInstances[i].alive){
+            aliveCircles.push_back(i);
+        }
+    }
+
+    uint32_t neededLines = aliveCircles.size() > 1 ? aliveCircles.size() - 1 : 0;
+
+    std::span<LineData> lines = api.getLineVector();
+
+    while (lines.size() < neededLines){
+        api.addLine({0,0}, {0,0}, 2.0f);
+        lines = api.getLineVector();
+    }
+
+    while (lines.size() > neededLines){
+        Entity e = {static_cast<uint32_t>(lines.size() - 1), InstanceType::Line};
+        api.deleteInstance(e);
+        lines = api.getLineVector();
+    }
+
+    for (uint32_t i = 0; i < neededLines; i++){
+        uint32_t a = aliveCircles[i];
+        uint32_t b = aliveCircles[i + 1];
+
+        lines[i].point1 = circleInstances[a].position;
+        lines[i].point2 = circleInstances[b].position;
     }
 }

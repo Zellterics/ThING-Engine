@@ -1,11 +1,11 @@
 #include "ThING/consts.h"
+#include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/swapChainManager.h"
 #include "ThING/types/buffer.h"
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <utility>
 #include <vulkan/vulkan_core.h>
 
@@ -102,6 +102,8 @@ void PipelineManager::createDescriptorPool(){
     poolSizes[toIndex(DescriptorType::CombinedImageSampler)].descriptorCount = getDescriptorCount(DescriptorType::CombinedImageSampler);
     poolSizes[toIndex(DescriptorType::StorageImage)].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     poolSizes[toIndex(DescriptorType::StorageImage)].descriptorCount = getDescriptorCount(DescriptorType::StorageImage);
+    poolSizes[toIndex(DescriptorType::StorageBuffer)].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[toIndex(DescriptorType::StorageBuffer)].descriptorCount = getDescriptorCount(DescriptorType::StorageBuffer);
 
     constexpr uint32_t JFA_DESCRIPTOR_COUNT = 3;
     uint32_t pipelines = 0;
@@ -123,13 +125,13 @@ void PipelineManager::createDescriptorPool(){
     }
 }
 
-void PipelineManager::createDescriptorSets(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager){
+void PipelineManager::createDescriptorSets(BufferManager& bufferManager, SwapChainManager& swapChainManager){
     for(size_t i = 0; i < toIndex(PipelineType::Count); i++){
         if(static_cast<PipelineType>(i) ==  PipelineType::JFA){
             createJFADescriptorSets(swapChainManager);
             continue;
         }
-        createDescriptorSet(uniformBuffers, swapChainManager, static_cast<PipelineType>(i));
+        createDescriptorSet(bufferManager, swapChainManager, static_cast<PipelineType>(i));
     }
 }
 
@@ -203,7 +205,7 @@ void PipelineManager::createJFADescriptorSets(SwapChainManager& swapChainManager
 
 
 
-void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager, PipelineType type){
+void PipelineManager::createDescriptorSet(BufferManager& bufferManager, SwapChainManager& swapChainManager, PipelineType type){
     if (type == PipelineType::JFA){
         return;
     }
@@ -221,10 +223,15 @@ void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers
     }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i].buffer;
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
+        VkDescriptorBufferInfo uniformBufferInfo{};
+        uniformBufferInfo.buffer = bufferManager.viewBuffer(BufferType::Uniform, i).buffer;
+        uniformBufferInfo.offset = 0;
+        uniformBufferInfo.range = sizeof(UniformBufferObject);
+
+        VkDescriptorBufferInfo ssboBufferInfo{};
+        ssboBufferInfo.buffer = bufferManager.viewBuffer(BufferType::SSBO, i).buffer;
+        ssboBufferInfo.offset = 0;
+        ssboBufferInfo.range = VK_WHOLE_SIZE;
 
         VkDescriptorImageInfo idImageInfo{};
         idImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -249,7 +256,7 @@ void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers
             switch (binding.type) {
                 case DescriptorType::UniformBuffer:
                     writes.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                    writes.pBufferInfo = &bufferInfo;
+                    writes.pBufferInfo = &uniformBufferInfo;
                     break;
                 case DescriptorType::CombinedImageSampler:
                     writes.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -264,6 +271,10 @@ void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers
                         std::unreachable();
                     }
                     break;
+                case DescriptorType::StorageBuffer:
+                    writes.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    writes.pBufferInfo = &ssboBufferInfo;
+                    break;
                 case DescriptorType::Count: std::unreachable();
                 default: std::unreachable(); 
             }
@@ -275,13 +286,13 @@ void PipelineManager::createDescriptorSet(std::span<const Buffer> uniformBuffers
 }
 
 
-void PipelineManager::createDescriptors(std::span<const Buffer> uniformBuffers, SwapChainManager& swapChainManager){
+void PipelineManager::createDescriptors(BufferManager& bufferManager, SwapChainManager& swapChainManager){
     if (descriptorPool != VK_NULL_HANDLE) {
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
         descriptorPool = VK_NULL_HANDLE;
     }
     createDescriptorPool();
-    createDescriptorSets(uniformBuffers,swapChainManager );
+    createDescriptorSets(bufferManager,swapChainManager );
 }
 
 void PipelineManager::createIdSampler() {
@@ -332,7 +343,7 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkAttachmentDescription idAttachment{};
-    idAttachment.format = VK_FORMAT_R32_UINT;
+    idAttachment.format = VK_FORMAT_R32G32_SINT;
     idAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     idAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     idAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -346,7 +357,7 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     idAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     
     VkAttachmentDescription seedAttachment{};
-    seedAttachment.format = VK_FORMAT_R32G32_SFLOAT;
+    seedAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     seedAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     seedAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     seedAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -359,6 +370,20 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     seedAttachmentRef.attachment = 2;
     seedAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 3;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
     VkSubpassDescription subpass{};
     std::array<VkAttachmentReference, 3> colorAttachments = {
         colorAttachmentRef,
@@ -368,6 +393,7 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size());
     subpass.pColorAttachments = colorAttachments.data();
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -379,10 +405,11 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
 
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    std::array<VkAttachmentDescription, 3> attachments = {
+    std::array<VkAttachmentDescription, 4> attachments = {
         colorAttachment,
         idAttachment,
-        seedAttachment
+        seedAttachment,
+        depthAttachment
     };
     renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
     renderPassInfo.pAttachments = attachments.data();
@@ -471,17 +498,22 @@ void PipelineManager::createImGuiRenderPass(const VkFormat& swapChainImageFormat
     }
 }
 
-void PipelineManager::updateDescriptorSets(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex){
+void PipelineManager::updateDescriptorSets(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex){
     for(size_t i = 0; i < GRAPHICS_PIPELINE_COUNT; i++){
-        updateDescriptorSet(currentFrame, uniformBuffer, swapChainManager, imageIndex, static_cast<PipelineType>(i));
+        updateDescriptorSet(currentFrame, bufferManager, swapChainManager, imageIndex, static_cast<PipelineType>(i));
     }
 }
 
-void PipelineManager::updateDescriptorSet(uint32_t currentFrame, const Buffer& uniformBuffer, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
-    VkDescriptorBufferInfo bufferInfo{};
-    bufferInfo.buffer = uniformBuffer.buffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(UniformBufferObject);
+void PipelineManager::updateDescriptorSet(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
+    VkDescriptorBufferInfo uniformBufferInfo{};
+    uniformBufferInfo.buffer = bufferManager.viewBuffer(BufferType::Uniform, imageIndex).buffer;
+    uniformBufferInfo.offset = 0;
+    uniformBufferInfo.range = sizeof(UniformBufferObject);
+
+    VkDescriptorBufferInfo ssboBufferInfo{};
+    ssboBufferInfo.buffer = bufferManager.viewBuffer(BufferType::SSBO, currentFrame).buffer;
+    ssboBufferInfo.offset = 0;
+    ssboBufferInfo.range = VK_WHOLE_SIZE;
 
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -507,12 +539,12 @@ void PipelineManager::updateDescriptorSet(uint32_t currentFrame, const Buffer& u
         switch (binding.type) {
             case DescriptorType::UniformBuffer:
                 write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                write.pBufferInfo = &bufferInfo;
+                write.pBufferInfo = &uniformBufferInfo;
                 break;
 
             case DescriptorType::CombinedImageSampler:
                 write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-                if (binding.binding == 1 ) { //IF CREATE FUNCTIONS FIXES THIS, FIX TOO
+                if (binding.binding == 1 ) {
                     write.pImageInfo = &imageInfo;
                 } else if (binding.binding == 2) {
                     write.pImageInfo = &jfaImageInfo;
@@ -520,7 +552,10 @@ void PipelineManager::updateDescriptorSet(uint32_t currentFrame, const Buffer& u
                     std::unreachable();
                 }
                 break;
-
+            case DescriptorType::StorageBuffer:
+                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                write.pBufferInfo = &ssboBufferInfo;
+                break;
             case DescriptorType::Count:
             default:
                 std::unreachable();

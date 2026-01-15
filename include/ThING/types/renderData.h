@@ -14,15 +14,17 @@ struct InstanceData {
     float rotation = 0.0f;
     float outlineSize = 0.0f;
     uint32_t objectID = 0;
-    InstanceType type;
+    uint32_t groupID = 0;
 
     glm::vec4 color;
     glm::vec4 outlineColor = {0,0,0,0};
 
+    int32_t drawIndex = 0;
     uint32_t alive = 1;
+    InstanceType type;
 
-    static std::array<VkVertexInputAttributeDescription, 9> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 9> attributes{};
+    static std::array<VkVertexInputAttributeDescription, 11> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 11> attributes{};
         uint32_t loc = 2;
         uint32_t binding = 1;
 
@@ -32,12 +34,14 @@ struct InstanceData {
         attributes[2] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, rotation) };
         attributes[3] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(InstanceData, outlineSize) };
         attributes[4] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, objectID) };
-        attributes[5] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, type) };
+        attributes[5] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, groupID) };
 
         attributes[6] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, color) };
         attributes[7] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(InstanceData, outlineColor) };
 
-        attributes[8] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, alive) };
+        attributes[8] = { loc++, binding, VK_FORMAT_R32_SINT, offsetof(InstanceData, drawIndex) };
+        attributes[9] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, alive) };
+        attributes[10] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(InstanceData, type) };
 
         return attributes;
     }
@@ -45,12 +49,64 @@ struct InstanceData {
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription binding{};
         binding.binding = 1;
-        binding.stride  = sizeof(InstanceData);
+        binding.stride = sizeof(InstanceData);
         binding.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
         return binding;
     }
 };
 
+struct LineData {
+    glm::vec2 point1;
+    glm::vec2 point2;
+
+    float thickness = 0.0f;
+    float outlineSize = 0.0f;
+    uint32_t objectID = 0;
+    uint32_t groupID = 0;
+
+    glm::vec4 color;
+    glm::vec4 outlineColor = {0,0,0,0};
+
+    int32_t drawIndex = 0;
+    uint32_t alive = 1;
+    InstanceType type;
+
+    static std::array<VkVertexInputAttributeDescription, 11> getAttributeDescriptions() {
+        std::array<VkVertexInputAttributeDescription, 11> attributes{};
+        uint32_t loc = 2;
+        uint32_t binding = 1;
+
+        attributes[0] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(LineData, point1) };
+        attributes[1] = { loc++, binding, VK_FORMAT_R32G32_SFLOAT, offsetof(LineData, point2) };
+
+        attributes[2] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(LineData, thickness) };
+        attributes[3] = { loc++, binding, VK_FORMAT_R32_SFLOAT, offsetof(LineData, outlineSize) };
+        attributes[4] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(LineData, objectID) };
+        attributes[5] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(LineData, groupID) };
+
+        attributes[6] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(LineData, color) };
+        attributes[7] = { loc++, binding, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(LineData, outlineColor) };
+
+        attributes[8] = { loc++, binding, VK_FORMAT_R32_SINT, offsetof(LineData, drawIndex) };
+        attributes[9] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(LineData, alive) };
+        attributes[10] = { loc++, binding, VK_FORMAT_R32_UINT, offsetof(LineData, type) };
+
+        return attributes;
+    }
+
+    static VkVertexInputBindingDescription getBindingDescription() {
+        VkVertexInputBindingDescription binding{};
+        binding.binding = 1;
+        binding.stride = sizeof(LineData);
+        binding.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+        return binding;
+    }
+};
+
+static_assert(sizeof(LineData) == sizeof(InstanceData));
+static_assert(alignof(LineData) == alignof(InstanceData));
+static_assert(std::is_trivially_copyable_v<LineData>);
+static_assert(std::is_trivially_copyable_v<InstanceData>);
 
 struct MeshData{
     uint32_t vertexOffset;
@@ -101,6 +157,14 @@ struct WorldData{
     std::vector<InstanceData> instances;
     std::vector<MeshData> meshes;
 
-    uint32_t circleCount;
+    uint32_t instancedCount;
     uint32_t polygonOffset;
+};
+
+struct SSBO{
+    glm::vec4 outlineColor;
+    float outlineSize;
+    uint32_t groupID;
+    uint32_t alive = 0; // 0 = death, 1 = alive
+    uint32_t padding = 0;
 };

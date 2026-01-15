@@ -1,4 +1,7 @@
+#include "ThING/types/renderData.h"
 #include <ThING/core.h>
+#include <cstdint>
+#include <vector>
 
 //PASS THIS THING TO A RENDERER CLASS LATER
 void ProtoThiApp::renderFrame(){
@@ -19,9 +22,25 @@ void ProtoThiApp::renderFrame(){
 
     indirectCommandCount = indirectCommands.size();
 
+    std::vector<SSBO> ssboData;
+    ssboData.reserve(worldData.instances.size());
+    uint32_t i = 1;
+    ssboData.push_back({{0,0,0,0},0,0,0});
+    for(InstanceData& instance : worldData.instances){
+        if(instance.alive && instance.outlineSize > 0){
+            ssboData.emplace_back(instance.outlineColor, instance.outlineSize, instance.groupID, 1);
+            instance.objectID = i++;
+        } else {
+            ssboData.emplace_back(instance.outlineColor, instance.outlineSize, instance.groupID, 0);
+            instance.objectID = 0;
+        }
+        
+    }
+
     bufferManager.updateIndirectBuffers(indirectCommands, swapChainManager.getInFlightFences(), currentFrame);
     bufferManager.updateUniformBuffers(swapChainManager.getExtent(), zoom, offset, currentFrame);
-    bufferManager.updateCustomBuffers(vertices, indices, worldData.instances, swapChainManager.getInFlightFences(), currentFrame);
+    bufferManager.updateCustomBuffers(vertices, indices, worldData.instances, ssboData,
+        swapChainManager.getInFlightFences(), currentFrame);
     glfwPollEvents();
     drawFrame();
 }

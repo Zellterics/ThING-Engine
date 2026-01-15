@@ -24,6 +24,7 @@ enum class RenderPassType{
 enum class InstanceType : uint32_t{
     Polygon,
     Circle,
+    Line,
     Count
 };
 
@@ -31,6 +32,7 @@ enum class DescriptorType{
     UniformBuffer,
     CombinedImageSampler,
     StorageImage,
+    StorageBuffer,
     Count
 };
 
@@ -42,6 +44,7 @@ enum class BufferType{
     QuadIndex,
     Uniform,
     Indirect,
+    SSBO,
     Count
 };
 
