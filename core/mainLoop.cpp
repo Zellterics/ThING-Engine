@@ -29,12 +29,10 @@ void ProtoThiApp::renderFrame(){
     for(InstanceData& instance : worldData.instances){
         if(instance.alive && instance.outlineSize > 0){
             ssboData.emplace_back(instance.outlineColor, instance.outlineSize, instance.groupID, 1);
-            instance.objectID = i++;
         } else {
             ssboData.emplace_back(instance.outlineColor, instance.outlineSize, instance.groupID, 0);
-            instance.objectID = 0;
         }
-        
+        instance.objectID = i++;        
     }
 
     bufferManager.updateIndirectBuffers(indirectCommands, swapChainManager.getInFlightFences(), currentFrame);
