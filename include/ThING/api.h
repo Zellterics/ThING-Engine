@@ -40,10 +40,10 @@ namespace ThING{
         bool playAudio(const std::string& soundFile, uint8_t volume);
 
     private:
-        Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
+        // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed
         Entity addCircle(InstanceData&& instance);
         Entity addLine(LineData&& line);
-        void cleanRenderData();
+        // void cleanRenderData(); add if a lot of death objects exists, right now I don't plan to use it
 
         void mainLoop();
 

@@ -37,7 +37,7 @@ ThING::API::API() : app(){
 }
 
 ThING::API::~API(){
-
+    ma_engine_uninit(&audioEngine);
 }
 
 void ThING::API::run(){
@@ -55,7 +55,7 @@ bool ThING::API::setUpdateCallback(std::function<void(ThING::API&, FPSCounter&)>
 }
 
 bool ThING::API::setUICallback(std::function<void(ThING::API&, FPSCounter&)> UI){
-    this->uiCallback = UI;\
+    this->uiCallback = UI;
     if(uiCallback == nullptr)
         return false;
     return true;
@@ -72,8 +72,8 @@ void ThING::API::mainLoop() {
         ImGui::NewFrame();
 
         // Callbacks
-        uiCallback(*this, fps);
-        updateCallback(*this, fps);
+        if(uiCallback) uiCallback(*this, fps);
+        if(updateCallback) updateCallback(*this, fps);
         //RENDER
         ImGui::Render();
         app.recordWorldData(circleInstances, polygonInstances,
@@ -344,4 +344,35 @@ Entity ThING::API::addLine(glm::vec2 point1, glm::vec2 point2, float width){
     tempInstance.type = InstanceType::Line;
     tempInstance.color = {1,1,0,1};
     return addLine(std::move(tempInstance));
+}
+
+bool ThING::API::playAudio(const std::string& soundFile){
+    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), nullptr) != MA_SUCCESS){
+        return false;
+    }
+    return true;
+}
+
+bool ThING::API::playAudio(const std::string& soundFile, uint8_t volume){
+    //Can be optimized by replaying instead of reloading, not high performance impact right now to bother
+    //Do if you/I need to play a lot of sounds at high speeds
+    static bool first = true;
+    static ma_sound_group playVolumeGroup{};
+    static uint8_t vol = volume;
+    
+    
+    if(first){
+        ma_sound_group_init(&audioEngine, 0, nullptr, &playVolumeGroup);
+        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
+
+        first = false;
+    }
+    if(vol != volume){
+        vol = volume;
+        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
+    }
+    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), &playVolumeGroup) != MA_SUCCESS){
+        return false;
+    }
+    return true;
 }
