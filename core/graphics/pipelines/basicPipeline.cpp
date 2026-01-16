@@ -1,14 +1,14 @@
+#include "basicVert_spv.h"
+#include "basicFrag_spv.h"
+
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <span>
 #include <vulkan/vulkan_core.h>
 
 void PipelineManager::createBaseGraphicsPipeline(){
-    auto basicVertShaderCode = readFile("../shaders/basicVert.spv");
-    auto basicFragShaderCode = readFile("../shaders/basicFrag.spv");
-
-    VkShaderModule basicVertShaderModule = createShaderModule(basicVertShaderCode);
-    VkShaderModule basicFragShaderModule = createShaderModule(basicFragShaderCode);
+    VkShaderModule basicVertShaderModule = createShaderModule(ThING::shaders::basicVertSpv);
+    VkShaderModule basicFragShaderModule = createShaderModule(ThING::shaders::basicFragSpv);
 
     VkPipelineShaderStageCreateInfo basicVertShaderStageInfo{};
     basicVertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

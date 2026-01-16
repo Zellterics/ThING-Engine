@@ -1,13 +1,12 @@
+#include "postVert_spv.h"
+#include "postFrag_spv.h"
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <vulkan/vulkan_core.h>
 
 void PipelineManager::createPostGraphicsPipeline() {
-    auto vertShaderCode = readFile("../shaders/postVert.spv");
-    auto fragShaderCode = readFile("../shaders/postFrag.spv");
-
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+    VkShaderModule vertShaderModule = createShaderModule(ThING::shaders::postVertSpv);
+    VkShaderModule fragShaderModule = createShaderModule(ThING::shaders::postFragSpv);
 
     VkPipelineShaderStageCreateInfo shaderStages[2]{};
 

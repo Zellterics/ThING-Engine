@@ -97,5 +97,8 @@
         "xutility": "cpp",
         "barrier": "cpp",
         "resumable": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "${workspaceFolder}/demo",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureOnOpen": true
 }

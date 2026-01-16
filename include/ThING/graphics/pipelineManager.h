@@ -70,7 +70,7 @@ private:
     
     void createIdSampler();
     
-    VkShaderModule createShaderModule(const std::vector<char>& code);
+    VkShaderModule createShaderModule(std::span<const uint32_t> code);
 
     std::array<VkRenderPass, toIndex(RenderPassType::Count)> renderPasses;
     std::array<VkPipelineLayout, toIndex(PipelineType::Count)> pipelineLayouts;

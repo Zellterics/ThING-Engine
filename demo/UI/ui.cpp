@@ -30,7 +30,7 @@ void UI(ThING::API& api, FPSCounter& fps){
     if(first){
         first = false;
 
-        monocraft = ImGui::GetIO().Fonts->AddFontFromFileTTF("../external/Monocraft.ttf", 18.0f);
+        monocraft = ImGui::GetIO().Fonts->AddFontFromFileTTF("../demo/Monocraft.ttf", 18.0f);
         IM_ASSERT(monocraft && "Failed to load font!");
 
         ImGui::DockBuilderRemoveNode(dockspaceID);

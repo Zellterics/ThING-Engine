@@ -1,10 +1,9 @@
+#include "jfaComp_spv.h"
 #include "ThING/types/enums.h"
 #include <ThING/graphics/pipelineManager.h>
 
 void PipelineManager::createJFAPipeline() {
-    auto compShaderCode = readFile("../shaders/jfaComp.spv");
-
-    VkShaderModule compShaderModule = createShaderModule(compShaderCode);
+    VkShaderModule compShaderModule = createShaderModule(ThING::shaders::jfaCompSpv);
 
     VkPipelineShaderStageCreateInfo shaderStage{};
     shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
