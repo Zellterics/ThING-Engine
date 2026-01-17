@@ -114,16 +114,29 @@ Entity ThING::API::addLine(LineData&& instance){
 //PUBLIC
 
 uint32_t ThING::API::getInstanceCount(InstanceType type){
+    size_t count = 0;
     switch (type) {
         case InstanceType::Polygon:
-            return polygonInstances.size();
-
+            for(InstanceData instance : polygonInstances){
+                if(instance.alive){
+                    count++;
+                }
+            }
+            return count;
         case InstanceType::Circle:
-            return circleInstances.size();
-        
+            for(InstanceData instance : circleInstances){
+                if(instance.alive){
+                    count++;
+                }
+            }
+            return count;
         case InstanceType::Line:
-            return lineInstances.size();
-
+            for(LineData instance : lineInstances){
+                if(instance.alive){
+                    count++;
+                }
+            }
+            return count;
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }

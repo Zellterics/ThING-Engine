@@ -21,6 +21,7 @@ void update(ThING::API& api, FPSCounter& fps){
 
     static uint32_t count = 0;
     static std::vector<PhysicsObject> circlePhysics = {};
+    static std::vector<Entity> lineEntities;
 
     const float BIGGER_RADIUS = 4;
     const float BIGGER_RADIUS_MINUS = BIGGER_RADIUS - 1;
@@ -90,7 +91,7 @@ void update(ThING::API& api, FPSCounter& fps){
     const int steps = 4;
     const float sub_dt = simSpeed / (float)steps;
 
-    int circleAmount = api.getInstanceCount(InstanceType::Circle);
+    int circleAmount = circleInstances.size();
 
     int gridWidth  = (windowSize.width  + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
     int gridHeight = (windowSize.height + BIGGER_RADIUS_MINUS) / BIGGER_RADIUS;
@@ -210,24 +211,24 @@ void update(ThING::API& api, FPSCounter& fps){
 
     uint32_t neededLines = aliveCircles.size() > 1 ? aliveCircles.size() - 1 : 0;
 
-    std::span<LineData> lines = api.getLineVector();
-
-    while (lines.size() < neededLines){
-        api.addLine({0,0}, {0,0}, 2.0f);
-        lines = api.getLineVector();
+    while (lineEntities.size() < neededLines) {
+        Entity e = api.addLine({0,0}, {0,0}, 2.0f);
+        lineEntities.push_back(e);
     }
 
-    while (lines.size() > neededLines){
-        Entity e = {static_cast<uint32_t>(lines.size() - 1), InstanceType::Line};
-        api.deleteInstance(e);
-        lines = api.getLineVector();
+    while (lineEntities.size() > neededLines) {
+        api.deleteInstance(lineEntities.back());
+        lineEntities.pop_back();
     }
 
-    for (uint32_t i = 0; i < neededLines; i++){
+    for (uint32_t i = 0; i < neededLines; i++) {
         uint32_t a = aliveCircles[i];
         uint32_t b = aliveCircles[i + 1];
 
-        lines[i].point1 = circleInstances[a].position;
-        lines[i].point2 = circleInstances[b].position;
+        Entity line = lineEntities[i];
+        LineData& ld = api.getLineVector()[line.index];
+
+        ld.point1 = circleInstances[a].position;
+        ld.point2 = circleInstances[b].position;
     }
 }
