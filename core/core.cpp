@@ -23,9 +23,8 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
     clearColor[2].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
     clearColor[3].depthStencil = {1.0f, 0};
     currentFrame = 0;
-    worldData.instancedCount = 0;
-    worldData.instances = {};
     worldData.meshes = {};
+    worldData.ssboData = {};
     worldData.polygonOffset = 0;
 }
 
@@ -90,26 +89,55 @@ void ProtoThiApp::cleanup() {
 }
 
 void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
-    std::span<InstanceData> lineInstances, std::span<MeshData> meshes){
-    worldData.instances.clear();
-    
-    worldData.instancedCount = circleInstances.size() + lineInstances.size();
-    worldData.polygonOffset = worldData.instancedCount;
+    std::span<InstanceData> lineInstances, std::span<MeshData> meshes, DirtyFlags dirtyFlags) {
+    worldData.dirtyFlags = dirtyFlags;
+    worldData.circleInstances = circleInstances;
+    worldData.lineInstances = lineInstances;
+    worldData.polygonInstances = polygonInstances;
+    worldData.meshes = meshes;
 
-    worldData.instances.resize(circleInstances.size() + polygonInstances.size() + lineInstances.size());
+    worldData.polygonOffset = circleInstances.size() + lineInstances.size();
 
-    InstanceData* dst = worldData.instances.data();
+    if (dirtyFlags.ssbo) {
 
-    std::memcpy(dst, circleInstances.data(), circleInstances.size() * sizeof(InstanceData));
-    dst += circleInstances.size();
-    std::memcpy(dst, lineInstances.data(), lineInstances.size() * sizeof(InstanceData));
-    dst += lineInstances.size();
-    std::memcpy(dst, polygonInstances.data(), polygonInstances.size() * sizeof(InstanceData));
+        uint32_t maxId = 0;
 
-    worldData.meshes.assign(meshes.begin(), meshes.end());
-    assert(worldData.meshes.size() == polygonInstances.size());
-    for(size_t i = 0; i < polygonInstances.size(); i++){
-        worldData.meshes[i].instanceIndex = worldData.polygonOffset + i;
+        auto scanMax = [&](std::span<InstanceData> arr) {
+            for (const InstanceData& inst : arr) {
+                if (inst.objectID != 0) {
+                    if (inst.objectID > maxId) maxId = inst.objectID;
+                }
+            }
+        };
+
+        scanMax(circleInstances);
+        scanMax(lineInstances);
+        scanMax(polygonInstances);
+
+        worldData.ssboData.clear();
+        worldData.ssboData.resize(maxId + 1);
+
+        for (auto& e : worldData.ssboData) e = SSBO{};
+
+        if (!worldData.ssboData.empty()) {
+            worldData.ssboData[0] = { {0,0,0,0}, 0.0f, 0u, 0u };
+        }
+
+        auto writeSpan = [&](std::span<InstanceData> arr) {
+            for (const InstanceData& inst : arr) {
+                const uint32_t id = inst.objectID;
+                if (id == 0) continue;
+
+                if (id >= worldData.ssboData.size()) continue;
+
+                const uint32_t enabled = (inst.alive && inst.outlineSize > 0.0f) ? 1u : 0u;
+                worldData.ssboData[id] = { inst.outlineColor, inst.outlineSize, inst.groupID, enabled };
+            }
+        };
+
+        writeSpan(circleInstances);
+        writeSpan(lineInstances);
+        writeSpan(polygonInstances);
     }
 }
 

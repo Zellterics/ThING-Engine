@@ -19,13 +19,7 @@ public:
     BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue);
     void createBuffers();
 
-    void uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData);
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void updateBuffer(VkFence& inFlightFences, const void* data, VkDeviceSize newBufferSize, 
-        uint32_t frameIndex, VkBufferUsageFlags usage, BufferType type);
-    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, std::span<InstanceData> instanceData, 
-        std::span<SSBO> ssboData ,std::span<VkFence> inFlightFences, uint32_t frameIndex);
+    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex);
     void updateIndirectBuffers(std::span<const VkDrawIndexedIndirectCommand> commands, std::vector<VkFence>& inFlightFences, uint32_t frameIndex);
     void updateUniformBuffers(const VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex);
     void cleanUp();
@@ -33,9 +27,16 @@ public:
     std::span<const Buffer, MAX_FRAMES_IN_FLIGHT> viewBuffers(BufferType type) const;
 private:
 
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
     void createCustomBuffers();
     void createIndirectBuffers();
     void createUniformBuffers();
+
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    void uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData);
+    void updateBuffer(VkFence& inFlightFences, const void* data, VkDeviceSize newBufferSize, 
+        uint32_t frameIndex, VkBufferUsageFlags usage, BufferType type);
 
     Buffer& getBuffer(BufferType type, size_t index);
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT>& getBuffers(BufferType type);
@@ -51,7 +52,9 @@ private:
 
     std::vector<DynamicBuffer<MAX_FRAMES_IN_FLIGHT>> stagingBuffers;
     UniformBufferObject ubo;
-    std::array<Buffer, MAX_FRAMES_IN_FLIGHT> ssbo;
+    Buffer ssbo;
+    void* ssboMapped;
+    std::array<void*, MAX_FRAMES_IN_FLIGHT> instancedMapped;
     
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> vertexBuffers;
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> indexBuffers;

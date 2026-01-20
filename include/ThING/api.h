@@ -1,6 +1,7 @@
 #pragma once
 #include <ThING/types/apiTypes.h>
 #include <ThING/types/renderData.h>
+#include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
 #include "glm/fwd.hpp"
 #include <ThING/core.h>
@@ -39,6 +40,7 @@ namespace ThING{
         bool playAudio(const std::string& soundFile);
         bool playAudio(const std::string& soundFile, uint8_t volume);
 
+        void updateOutlines() {dirtyFlags.ssbo = true;}
     private:
         // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed
         Entity addCircle(InstanceData&& instance);
@@ -59,6 +61,8 @@ namespace ThING{
 
         std::function<void(ThING::API&, FPSCounter&)> updateCallback;
         std::function<void(ThING::API&, FPSCounter&)> uiCallback;
+
+        DirtyFlags dirtyFlags;
 
         ma_engine audioEngine;
         ProtoThiApp app;

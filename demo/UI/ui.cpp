@@ -2,7 +2,7 @@
 #include "glm/fwd.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "globals.h"
+#include "../globals.h"
 #include <ThING/extras/imGuiCustom.h>
 #include <cstdint>
 #include <string>
@@ -22,8 +22,7 @@ void UI(ThING::API& api, FPSCounter& fps){
     ImGuiID dockspaceID = ImGui::DockSpaceOverViewport(
             0,
             ImGui::GetMainViewport(),
-            ImGuiDockNodeFlags_PassthruCentralNode |
-            (ImGuiDockNodeFlags)ImGuiDockNodeFlags_NoTabBar
+            ImGuiDockNodeFlags_PassthruCentralNode | (ImGuiDockNodeFlags)ImGuiDockNodeFlags_NoTabBar
         );
 
     static bool first = true;

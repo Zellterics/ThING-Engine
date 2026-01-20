@@ -71,13 +71,16 @@ void ThING::API::mainLoop() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        dirtyFlags.ssbo = false;
+        dirtyFlags.meshes = false;
+
         // Callbacks
         if(uiCallback) uiCallback(*this, fps);
         if(updateCallback) updateCallback(*this, fps);
         //RENDER
         ImGui::Render();
-        app.recordWorldData(circleInstances, polygonInstances,
-            std::span(reinterpret_cast<InstanceData*>(lineInstances.data()), lineInstances.size()), polygonMeshes);
+        app.recordWorldData(circleInstances, polygonInstances, std::span(reinterpret_cast<InstanceData*>(lineInstances.data()), 
+            lineInstances.size()), polygonMeshes, dirtyFlags);
         app.renderFrame();
     }
     vkDeviceWaitIdle(app.device);
@@ -217,6 +220,7 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
     }
     app.vertices.insert(app.vertices.end(), ver.begin(), ver.end());
     app.indices.insert(app.indices.end(), ind.begin(), ind.end());
+    dirtyFlags.meshes = true;
     return e;
 }
 
@@ -253,6 +257,7 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
     }
     app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));
     app.indices.insert(app.indices.end(), std::make_move_iterator(ind.begin()), std::make_move_iterator(ind.end()));
+    dirtyFlags.meshes = true;
     return e;
 }
 

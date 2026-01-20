@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <span>
 #include <vector>
 
 struct InstanceData {
@@ -153,12 +154,9 @@ struct DrawBatch {
     uint32_t instanceOffset;
 };
 
-struct WorldData{
-    std::vector<InstanceData> instances;
-    std::vector<MeshData> meshes;
-
-    uint32_t instancedCount;
-    uint32_t polygonOffset;
+struct DirtyFlags{
+    bool ssbo = true;
+    bool meshes = true;
 };
 
 struct SSBO{
@@ -167,4 +165,16 @@ struct SSBO{
     uint32_t groupID;
     uint32_t alive = 0; // 0 = death, 1 = alive
     uint32_t padding = 0;
+};
+
+struct WorldData{
+    std::span<InstanceData> circleInstances;
+    std::span<InstanceData> polygonInstances;
+    std::span<InstanceData> lineInstances;
+    std::span<MeshData> meshes;
+    std::vector<SSBO> ssboData;
+
+    uint32_t polygonOffset;
+
+    DirtyFlags dirtyFlags;
 };

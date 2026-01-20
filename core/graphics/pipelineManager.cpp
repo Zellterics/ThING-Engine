@@ -506,7 +506,7 @@ void PipelineManager::updateDescriptorSets(uint32_t currentFrame, BufferManager&
 
 void PipelineManager::updateDescriptorSet(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
     VkDescriptorBufferInfo uniformBufferInfo{};
-    uniformBufferInfo.buffer = bufferManager.viewBuffer(BufferType::Uniform, imageIndex).buffer;
+    uniformBufferInfo.buffer = bufferManager.viewBuffer(BufferType::Uniform, currentFrame).buffer;
     uniformBufferInfo.offset = 0;
     uniformBufferInfo.range = sizeof(UniformBufferObject);
 

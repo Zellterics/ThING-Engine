@@ -74,7 +74,7 @@ private:
     void cleanup();
 
     void recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 
-        std::span<InstanceData> lineInstances, std::span<MeshData> meshes);
+        std::span<InstanceData> lineInstances, std::span<MeshData> meshes, DirtyFlags dirtyFlags);
     
     void createInstance();
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);

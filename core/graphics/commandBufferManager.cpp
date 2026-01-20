@@ -409,12 +409,11 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
         .indexBuffer = BufferType::QuadIndex,
         .indexCount = QUAD_INDICES.size(),
         .indexOffset = 0,
-        .instanceCount = static_cast<uint32_t>(renderContext.worldData.instancedCount),
+        .instanceCount = static_cast<uint32_t>(renderContext.worldData.polygonOffset),
         .instanceOffset = 0,
-        
     };
     cmdSetBufferBeginInfo(commandBuffers[currentFrame]);
-    static int layoutsInitialized[MAX_FRAMES_IN_FLIGHT] = {0,0,0};
+    static int layoutsInitialized[MAX_FRAMES_IN_FLIGHT] = {};
     if (!layoutsInitialized[currentFrame]) {
         transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewIdImages(), frameContext);
         transitionImageToGeneral(commandBuffers[currentFrame], frameContext.swapChainManager.viewSeedImages(), frameContext);

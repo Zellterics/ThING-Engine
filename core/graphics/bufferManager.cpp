@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstring>
 #include <cstdint>
+#include <span>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -16,6 +17,10 @@
 BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue) 
 : device(device), physicalDevice(physicalDevice), commandPool(commandPool), graphicsQueue(graphicsQueue) {
     ubo = {};
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        instancedMapped[i] = nullptr;
+    }
+    ssboMapped = nullptr;
 }
 
 void BufferManager::createBuffers(){
@@ -99,10 +104,14 @@ void BufferManager::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceS
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffer;
+    VkFence fence;
+    VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    vkCreateFence(device, &fenceInfo, nullptr, &fence);
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, fence);
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
 
+    vkDestroyFence(device, fence, nullptr);
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 }
 
@@ -115,7 +124,7 @@ const Buffer& BufferManager::viewBuffer(BufferType type, size_t index) const{
         case BufferType::QuadIndex:     return quadIndexBuffer;
         case BufferType::Uniform:       return uniformBuffers[index];
         case BufferType::Indirect:      return indirectBuffers[index];
-        case BufferType::SSBO:          return ssbo[index];
+        case BufferType::SSBO:          return ssbo;
         case BufferType::Count:         std::unreachable();
     }
     std::unreachable();
@@ -130,7 +139,7 @@ std::span<const Buffer, MAX_FRAMES_IN_FLIGHT> BufferManager::viewBuffers(BufferT
         case BufferType::QuadIndex:     std::unreachable();
         case BufferType::Uniform:       return uniformBuffers;
         case BufferType::Indirect:      return indirectBuffers;
-        case BufferType::SSBO:          return ssbo;
+        case BufferType::SSBO:          std::unreachable();
         case BufferType::Count:         std::unreachable();
     }
     std::unreachable();
@@ -145,7 +154,7 @@ Buffer& BufferManager::getBuffer(BufferType type, size_t index){
         case BufferType::QuadIndex:     return quadIndexBuffer;
         case BufferType::Uniform:       return uniformBuffers[index];
         case BufferType::Indirect:      return indirectBuffers[index];
-        case BufferType::SSBO:          return ssbo[index];
+        case BufferType::SSBO:          return ssbo;
         case BufferType::Count:         std::unreachable();
     }
     std::unreachable();
@@ -160,7 +169,7 @@ std::array<Buffer, MAX_FRAMES_IN_FLIGHT>& BufferManager::getBuffers(BufferType t
         case BufferType::QuadIndex:     std::unreachable();
         case BufferType::Uniform:       return uniformBuffers;
         case BufferType::Indirect:      return indirectBuffers;
-        case BufferType::SSBO:          return ssbo;
+        case BufferType::SSBO:          std::unreachable();
         case BufferType::Count:         std::unreachable();
     }
     std::unreachable();
@@ -294,7 +303,7 @@ void BufferManager::createCustomBuffers(){
 
     VkBufferUsageFlags indexFlags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
-    VkBufferUsageFlags instanceFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    VkBufferUsageFlags instanceFlags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
     VkMemoryPropertyFlags memoryFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
@@ -323,44 +332,51 @@ void BufferManager::createCustomBuffers(){
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         instanceBuffers[i].device = device;
-        createBuffer(BUFFER_PADDING, instanceFlags, memoryFlags, instanceBuffers[i].buffer, instanceBuffers[i].memory);
+        createBuffer(MAX_INSTANCED_OBJECTS, instanceFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, instanceBuffers[i].buffer, instanceBuffers[i].memory);
+        vkMapMemory(device, instanceBuffers[i].memory, 0, VK_WHOLE_SIZE, 0, &instancedMapped[i]);
     }
-    for(uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        ssbo[i].device = device;
-        createBuffer(MAX_SSBO_OBJECTS, ssboFlags, ssboMemoryFlags, ssbo[i].buffer, ssbo[i].memory);
-    }
+        ssbo.device = device;
+        createBuffer(MAX_SSBO_OBJECTS, ssboFlags, ssboMemoryFlags, ssbo.buffer, ssbo.memory);
+        vkMapMemory(device, ssbo.memory, 0, VK_WHOLE_SIZE, 0, &ssboMapped);
 }
 
 
-void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, 
-        std::span<InstanceData> instanceData, std::span<SSBO> ssboData, std::span<VkFence> inFlightFences, uint32_t frameIndex){
+void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex){
     if (stagingBuffers.size() < toIndex(BufferType::Count)) {
         stagingBuffers.resize(toIndex(BufferType::Count)); // CHANGE IF I HAVE TIME, SOME BUFFERS DON'T NEED STAGING BUT IT WORKS (ubo, ssbo, etc)
         for (auto& sb : stagingBuffers) {
             sb.stagingBuffer.device = device;
         }
     }
+    static std::array<bool, MAX_FRAMES_IN_FLIGHT> pendingMeshes = {};
+    if (worldData.dirtyFlags.meshes) {
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) pendingMeshes[i] = true;
+    }
 
     VkDeviceSize vertexSize = vertices.size() * sizeof(Vertex);
     VkDeviceSize indexSize = indices.size() * sizeof(uint16_t);
-    VkDeviceSize instanceSize = instanceData.size() * sizeof(InstanceData);
-    VkDeviceSize ssboSize = ssboData.size() * sizeof(SSBO);
+    VkDeviceSize instanceSize = (worldData.polygonOffset + worldData.polygonInstances.size()) * sizeof(InstanceData);
+    VkDeviceSize ssboSize = worldData.ssboData.size() * sizeof(SSBO);
 
     VkBufferUsageFlags vertexFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     VkBufferUsageFlags indexFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     VkBufferUsageFlags instanceFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-
-    updateBuffer(inFlightFences[frameIndex], vertices.data(), vertexSize, frameIndex, vertexFlags, BufferType::Vertex);
-    updateBuffer(inFlightFences[frameIndex], indices.data(), indexSize, frameIndex, indexFlags, BufferType::Index);
-    updateBuffer(inFlightFences[frameIndex], instanceData.data(), instanceSize, frameIndex, instanceFlags, BufferType::Instance);
-
-    if(ssboSize == 0){
-        return;
+    if(pendingMeshes[frameIndex]){
+        updateBuffer(inFlightFences[frameIndex], vertices.data(), vertexSize, frameIndex, vertexFlags, BufferType::Vertex);
+        updateBuffer(inFlightFences[frameIndex], indices.data(), indexSize, frameIndex, indexFlags, BufferType::Index);
+        pendingMeshes[frameIndex] = false;
+    }//updateBuffer(inFlightFences[frameIndex], instanceData.data(), instanceSize, frameIndex, instanceFlags, BufferType::Instance);
+    if(instanceSize > 0){
+        InstanceData* dst = reinterpret_cast<InstanceData*>(instancedMapped[frameIndex]);
+        memcpy(dst, worldData.circleInstances.data(), worldData.circleInstances.size() * sizeof(InstanceData));
+        dst += worldData.circleInstances.size();
+        memcpy(dst, worldData.lineInstances.data(), worldData.lineInstances.size() * sizeof(InstanceData));
+        dst += worldData.lineInstances.size();
+        memcpy(dst, worldData.polygonInstances.data(), worldData.polygonInstances.size() * sizeof(InstanceData));
     }
-    void* ptr = nullptr;
-    vkMapMemory(device, ssbo[frameIndex].memory, 0, VK_WHOLE_SIZE, 0, &ptr);
-    memcpy(ptr, ssboData.data(), ssboSize);
-    vkUnmapMemory(device, ssbo[frameIndex].memory);
+    if(ssboSize > 0 && worldData.dirtyFlags.ssbo){
+        memcpy(ssboMapped, worldData.ssboData.data(), ssboSize);
+    }
 }
 
 void BufferManager::cleanUp(){
@@ -373,8 +389,8 @@ void BufferManager::cleanUp(){
         uniformBuffers[i].destroy();
         instanceBuffers[i].destroy();
         indirectBuffers[i].destroy();
-        ssbo[i].destroy();
     }
+    ssbo.destroy();
 
     for (auto& dyn : stagingBuffers) {
         if (dyn.isMapped) {

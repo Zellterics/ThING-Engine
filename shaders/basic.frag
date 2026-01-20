@@ -21,28 +21,19 @@ void main()
 {
     float alpha = vColor.a;
 
-    // =====================================================
-    // CIRCLE
-    // =====================================================
     if (vType == TYPE_CIRCLE) {
         float r = 1.0;
         float d = length(vLocalPos);
         alpha *= 1.0 - smoothstep(r - 0.01, r + 0.01, d);
     }
 
-    // =====================================================
-    // LINE
-    // =====================================================
     else if (vType == TYPE_LINE) {
 
-        // vLocalPos.y ∈ [-1, +1]
         float dist = abs(vLocalPos.y);
 
-        // line half-width normalized to 1.0
         float aa = fwidth(dist);
         alpha *= 1.0 - smoothstep(1.0 - aa, 1.0 + aa, dist);
 
-        // OPTIONAL: clip ends cleanly (no caps yet)
         if (vLocalPos.x < 0.0 || vLocalPos.x > 1.0)
             discard;
     }
@@ -50,16 +41,10 @@ void main()
     if (alpha <= 0.0)
         discard;
 
-    // =====================================================
-    // DEPTH FROM DRAW INDEX
-    // =====================================================
     float di = clamp(float(vDrawIndex), MIN_DRAW_INDEX, MAX_DRAW_INDEX);
     float depth01 = (di - MIN_DRAW_INDEX) / (MAX_DRAW_INDEX - MIN_DRAW_INDEX);
     gl_FragDepth = 1.0 - depth01;
 
-    // =====================================================
-    // OUTPUTS
-    // =====================================================
     outColor = vec4(vColor.rgb, alpha);
 
     if (vOutlineSize > 0u) {
