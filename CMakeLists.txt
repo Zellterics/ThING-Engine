@@ -22,17 +22,6 @@ else()
     message(FATAL_ERROR "There's no (glm::glm o glm).")
 endif()
 
-if(WIN32)
-    message(STATUS "WINDOWS CONFIG")
-    include_directories("$ENV{VULKAN_SDK}/Include")
-    link_directories("$ENV{VULKAN_SDK}/Lib")
-    set(THING_VULKAN_TARGET vulkan-1)
-else()
-    message(STATUS "LINUX CONFIG")
-    find_package(Vulkan REQUIRED)
-    set(THING_VULKAN_TARGET Vulkan::Vulkan)
-endif()
-
 # =========================================================
 # SHADERS: compile (optional) + embed to generated headers
 # Tool: shaders/embed.cpp
@@ -57,7 +46,7 @@ if(GLSLC)
 elseif(GLSLANG_VALIDATOR)
     set(SPIRV_COMPILER_KIND "glslangValidator")
 else()
-    message(FATAL_ERROR "No encontré glslc ni glslangValidator. Instala shaderc o glslang-tools.")
+    message(FATAL_ERROR "glslc not found, it should be insdide the vulkan SDK")
 endif()
 
 function(thing_compile_to_spv OUT_SPV IN_SRC)
@@ -167,6 +156,20 @@ target_include_directories(ThING
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+if(WIN32)
+    if(NOT DEFINED ENV{VULKAN_SDK})
+        message(FATAL_ERROR "VULKAN_SDK no está definido")
+    endif()
+
+    target_include_directories(ThING PUBLIC "$ENV{VULKAN_SDK}/Include")
+    target_link_directories(ThING PUBLIC "$ENV{VULKAN_SDK}/Lib")
+    set(THING_VULKAN_TARGET "vulkan-1.lib")
+else()
+    message(STATUS "LINUX CONFIG")
+    find_package(Vulkan REQUIRED)
+    set(THING_VULKAN_TARGET Vulkan::Vulkan)
+endif()
 
 target_link_libraries(ThING
     PUBLIC

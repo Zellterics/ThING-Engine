@@ -7,7 +7,7 @@
 
 inline constexpr uint32_t WIDTH = 1200;
 inline constexpr uint32_t HEIGHT = 800;
-inline constexpr std::string TITLE = "Vulkan";
+inline constexpr const char* TITLE = "Vulkan";
 inline constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
 
 //BufferManager.cpp

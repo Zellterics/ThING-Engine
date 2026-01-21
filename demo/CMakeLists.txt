@@ -13,10 +13,9 @@ set(THING_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
 add_subdirectory("${THING_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/thing-build")
 
 file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
-    *.cpp
+    globals.cpp
     UI/*.cpp
     update/*.cpp
-    extras/*.cpp
 )
 
 add_executable(${PROJECT_NAME}

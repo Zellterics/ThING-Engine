@@ -12,13 +12,13 @@ public:
     CommandBufferManager();
     void createCommandPool(VkPhysicalDevice& physicalDevice, VkDevice& device, VkSurfaceKHR& surface);
     void createCommandBuffers(VkDevice& device, VkSurfaceKHR& surface);
-    void recordCommandBuffer(u_int32_t currentFrame, const RenderContext& renderContext, const FrameContext& frameContext);
+    void recordCommandBuffer(uint32_t currentFrame, const RenderContext& renderContext, const FrameContext& frameContext);
     
     void cleanUpCommandBuffers(VkDevice& device);
     void cleanUpCommandPool(VkDevice& device);
 
     const VkCommandPool& viewCommandPool(){return commandPool;};
-    const VkCommandBuffer& viewCommandBufferOnFrame(u_int32_t currentFrame){return commandBuffers[currentFrame];};
+    const VkCommandBuffer& viewCommandBufferOnFrame(uint32_t currentFrame){return commandBuffers[currentFrame];};
 private:
     void cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer);
     void cmdInitRenderPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, RenderPassType type);

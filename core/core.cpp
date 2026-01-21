@@ -14,7 +14,7 @@
 #include "backends/imgui_impl_vulkan.h"
 #include "glm/fwd.hpp"
 
-ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE.c_str()){
+ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
     zoom = 1;
     offset = {0, 0};
     clearColor.resize(4);
