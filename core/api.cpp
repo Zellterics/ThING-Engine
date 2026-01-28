@@ -65,8 +65,8 @@ bool ThING::API::setUICallback(std::function<void(ThING::API&, FPSCounter&)> UI)
 void ThING::API::mainLoop() {
     FPSCounter fps;
     while (!glfwWindowShouldClose(app.windowManager.getWindow())) {
-        
-        //FRAME INIT
+        fps.beginFrame();
+
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -82,6 +82,8 @@ void ThING::API::mainLoop() {
         app.recordWorldData(circleInstances, polygonInstances, std::span(reinterpret_cast<InstanceData*>(lineInstances.data()), 
             lineInstances.size()), polygonMeshes, dirtyFlags);
         app.renderFrame();
+        
+        fps.endFrame();
     }
     vkDeviceWaitIdle(app.device);
 }
@@ -331,6 +333,13 @@ InstanceData& ThING::API::getInstance(const Entity e){
         case InstanceType::Count: std::unreachable();
         default: std::unreachable();
     }
+}
+
+LineData& ThING::API::getLine(const Entity e){
+    if(e.type == InstanceType::Line){
+        return lineInstances[e.index];
+    }
+    std::unreachable();
 }
 
 Entity ThING::API::addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color){

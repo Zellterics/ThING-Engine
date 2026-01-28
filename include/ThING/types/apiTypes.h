@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ThING/types/enums.h"
 #include <ThING/types.h>
 #include <cstdint>
@@ -14,6 +16,18 @@ struct Entity{
     }
     bool operator ==(const Entity& other) const {
         if(this->index == other.index && this->type == other.type){
+            return true;
+        }
+        return false;
+    }
+    bool operator !=(const Entity& other){
+        if(this->index != other.index || this->type != other.type){
+            return true;
+        }
+        return false;
+    }
+    bool operator !=(const Entity& other) const {
+        if(this->index != other.index || this->type != other.type){
             return true;
         }
         return false;

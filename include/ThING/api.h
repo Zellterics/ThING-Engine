@@ -36,6 +36,7 @@ namespace ThING{
         bool exists(const Entity e);
         bool deleteInstance(const Entity e);
         InstanceData& getInstance(const Entity e);
+        LineData& getLine(const Entity e);
         Entity addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color);
         bool playAudio(const std::string& soundFile);
         bool playAudio(const std::string& soundFile, uint8_t volume);

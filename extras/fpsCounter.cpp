@@ -1,42 +1,57 @@
 #include <ThING/extras/fpsCounter.h>
-#include <iostream>
+#include <chrono>
+#include <thread>
+#ifdef DEBUG
+    #include <iostream>
+#endif
 
-bool FPSCounter::frame() {
+void FPSCounter::beginFrame() {
+    frameStart = std::chrono::steady_clock::now();
+}
+
+void FPSCounter::endFrame() {
     using namespace std::chrono;
 
-    auto now = steady_clock::now();
-    deltaTime = duration_cast<duration<float>>(now - frameStart).count();
-    elapsedTime += deltaTime;
-    frameStart = now;
+    auto frameEnd = steady_clock::now();
+    deltaTime = duration<float>(frameEnd - frameStart).count();
+
+    float targetFrameTime = 1.0f / (targetFPS - 1);
+
+    if (deltaTime < targetFrameTime) {
+        std::this_thread::sleep_for(
+            duration<float>(targetFrameTime - deltaTime)
+        );
+
+        frameEnd = steady_clock::now();
+        deltaTime = duration<float>(frameEnd - frameStart).count();
+    }
+
+    fpsTimer += deltaTime;
     frameCount++;
 
-    if (elapsedTime >= 1.0f) {
-        #ifdef DEBUG
-        std::cout << "FPS: " << frameCount << std::endl;
-        #endif
+    if (fpsTimer >= 1.0f) {
+        currentFPS = frameCount;
         frameCount = 0;
-        elapsedTime = 0.0f;
-        return true;
-    }
-    return false;
-}
+        fpsTimer = 0.0f;
 
-void FPSCounter::delay(float targetFrameTime) {
-    using namespace std::chrono;
-
-    auto now = steady_clock::now();
-    float elapsed = duration_cast<duration<float>>(now - frameStart).count();
-    float remaining = targetFrameTime - elapsed;
-
-    if (remaining > 0.0f) {
-        while (duration_cast<duration<float>>(steady_clock::now() - frameStart).count() < targetFrameTime) {}
+        #ifdef DEBUG
+            std::cout << "FPS: " << currentFPS << std::endl;
+        #endif
     }
 }
 
-int FPSCounter::getFPS() const {
-    return (deltaTime > 0.0f) ? static_cast<int>(1.0f / deltaTime) : 0;
+void FPSCounter::setTarget(float target){
+    targetFPS = target;
 }
 
 float FPSCounter::getDeltaTime() const {
     return deltaTime;
+}
+
+int FPSCounter::getFPS() const {
+    return currentFPS;
+}
+
+int FPSCounter::getInstantFPS() const {
+    return (deltaTime > 0.0f) ? (1.0f / deltaTime) : 0.0f;
 }

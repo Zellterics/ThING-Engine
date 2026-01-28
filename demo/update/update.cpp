@@ -5,7 +5,7 @@
 #include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
-#include "globals.h"
+#include "../globals.h"
 #include "imgui.h"
 #include "physicsObject.h"
 #include <cstdint>

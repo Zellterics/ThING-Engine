@@ -71,7 +71,7 @@ void UI(ThING::API& api, FPSCounter& fps){
     }
     ImGui::SliderFloat("Stiffness", &stiffness, 0.01f, 0.4f, "%.3f");
 
-    ImGui::Text("Real FPS: %d", (int)(fps.getFPS() + 1));
+    ImGui::Text("Real FPS: %d", (int)(fps.getInstantFPS() + 1));
     ImGui::Text("Collisions: %u", collissionCount);
 
     if(ImGui::Button("Random Polygon")){
@@ -156,6 +156,5 @@ void UI(ThING::API& api, FPSCounter& fps){
         simHeight = (int)node->CentralNode->Size.y;
     }
 
-    fps.delay(1.f / (float)speed);
-    fps.frame();
+    fps.setTarget(speed);
 }
