@@ -27,6 +27,25 @@ endif()
 # Tool: shaders/embed.cpp
 # Output headers: build/generated_shaders/*.h
 # =========================================================
+set(THING_SHADER_OVERRIDES "" CACHE STRING
+    "Shader overrides: basicVert=/abs/path.spv;postFrag=/abs/path.spv"
+)
+
+function(thing_get_shader_override BASE_NAME OUT_VAR)
+    foreach(pair ${THING_SHADER_OVERRIDES})
+        string(REPLACE "=" ";" kv "${pair}")
+        list(GET kv 0 key)
+        list(GET kv 1 value)
+
+        if(key STREQUAL BASE_NAME)
+            set(${OUT_VAR} "${value}" PARENT_SCOPE)
+            return()
+        endif()
+    endforeach()
+
+    set(${OUT_VAR} "" PARENT_SCOPE)
+endfunction()
+
 set(SHADER_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 set(SHADER_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated_shaders)
 file(MAKE_DIRECTORY ${SHADER_GEN_DIR})
@@ -92,20 +111,34 @@ endfunction()
 #   - Then embeds to build/generated_shaders/<baseName>_spv.h
 #   - Adds the generated header to THING_SHADER_HEADERS (parent scope)
 function(thing_add_shader BASE_NAME GLSL_EXT SYMBOL)
-    set(GLSL_PATH ${SHADER_SRC_DIR}/${BASE_NAME}.${GLSL_EXT})
-    set(SPV_OUT   ${SHADER_GEN_DIR}/${BASE_NAME}.spv)
+    thing_get_shader_override("${BASE_NAME}" OVERRIDE_PATH)
 
-    if(EXISTS ${GLSL_PATH})
-        thing_compile_to_spv(${SPV_OUT} ${GLSL_PATH})
-        set(SPV_IN ${SPV_OUT})
+    if(OVERRIDE_PATH)
+        get_filename_component(ABS_OVERRIDE "${OVERRIDE_PATH}" ABSOLUTE)
+        set(SHADER_INPUT "${ABS_OVERRIDE}")
     else()
-        set(SPV_IN ${SHADER_SRC_DIR}/${BASE_NAME}.spv)
+        set(SHADER_INPUT "${SHADER_SRC_DIR}/${BASE_NAME}.${GLSL_EXT}")
     endif()
 
-    set(H_OUT ${SHADER_GEN_DIR}/${BASE_NAME}_spv.h)
-    thing_embed_spv(${H_OUT} ${SPV_IN} ${SYMBOL})
+    set(SPV_OUT "${SHADER_GEN_DIR}/${BASE_NAME}.spv")
 
-    set(THING_SHADER_HEADERS ${THING_SHADER_HEADERS} ${H_OUT} PARENT_SCOPE)
+    get_filename_component(SHADER_EXT "${SHADER_INPUT}" EXT)
+
+    if(EXISTS "${SHADER_INPUT}")
+        if(SHADER_EXT STREQUAL ".spv")
+            set(SPV_IN "${SHADER_INPUT}")
+        else()
+            thing_compile_to_spv("${SPV_OUT}" "${SHADER_INPUT}")
+            set(SPV_IN "${SPV_OUT}")
+        endif()
+    else()
+        set(SPV_IN "${SHADER_SRC_DIR}/${BASE_NAME}.spv")
+    endif()
+
+    set(H_OUT "${SHADER_GEN_DIR}/${BASE_NAME}_spv.h")
+    thing_embed_spv("${H_OUT}" "${SPV_IN}" "${SYMBOL}")
+
+    set(THING_SHADER_HEADERS ${THING_SHADER_HEADERS} "${H_OUT}" PARENT_SCOPE)
 endfunction()
 
 set(THING_SHADER_HEADERS "")
