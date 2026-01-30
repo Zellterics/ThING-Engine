@@ -12,10 +12,16 @@
 #include <vector>
 #include <miniaudio.h>
 
+
+const uint8_t ApiFlags_None = 0;
+const uint8_t ApiFlags_UpdateCallbackFirst = 1 << 0;
+
+
 namespace ThING{
     class API{
     public:
         API();
+        API(uint8_t flags);
         ~API();
 
         bool setUpdateCallback(std::function<void(ThING::API&, FPSCounter&)>);
@@ -67,5 +73,7 @@ namespace ThING{
 
         ma_engine audioEngine;
         ProtoThiApp app;
+
+        uint8_t apiFlags;
     };
 }

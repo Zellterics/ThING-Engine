@@ -34,6 +34,12 @@ ThING::API::API() : app(){
 
     circleFreeList = {};
     polygonFreeList = {};
+
+    apiFlags = 0;
+}
+
+ThING::API::API(uint8_t flags) : API(){
+    apiFlags = flags;
 }
 
 ThING::API::~API(){
@@ -75,8 +81,13 @@ void ThING::API::mainLoop() {
         dirtyFlags.meshes = false;
 
         // Callbacks
-        if(uiCallback) uiCallback(*this, fps);
-        if(updateCallback) updateCallback(*this, fps);
+        if(apiFlags & ApiFlags_UpdateCallbackFirst){
+            if(updateCallback) updateCallback(*this, fps);
+            if(uiCallback) uiCallback(*this, fps);
+        } else {
+            if(uiCallback) uiCallback(*this, fps);
+            if(updateCallback) updateCallback(*this, fps);
+        }
         //RENDER
         ImGui::Render();
         app.recordWorldData(circleInstances, polygonInstances, std::span(reinterpret_cast<InstanceData*>(lineInstances.data()), 
