@@ -199,6 +199,12 @@ void BufferManager::updateBuffer(VkFence& inFlightFences,
     if(newBufferSize == 0){
         return;
     }
+    if (stagingBuffers.size() < toIndex(BufferType::Count)) {
+        stagingBuffers.resize(toIndex(BufferType::Count)); // CHANGE IF I HAVE TIME, SOME BUFFERS DON'T NEED STAGING BUT IT WORKS (ubo, ssbo, etc)
+        for (auto& sb : stagingBuffers) {
+            sb.stagingBuffer.device = device;
+        }
+    }
     if (stagingBuffers[id].bufferSizes[frameIndex] < newBufferSize){
         stagingBuffers[id].bufferSizes[frameIndex] = newBufferSize + BUFFER_PADDING;
         if(passedBuffer.buffer){
@@ -342,12 +348,6 @@ void BufferManager::createCustomBuffers(){
 
 
 void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex){
-    if (stagingBuffers.size() < toIndex(BufferType::Count)) {
-        stagingBuffers.resize(toIndex(BufferType::Count)); // CHANGE IF I HAVE TIME, SOME BUFFERS DON'T NEED STAGING BUT IT WORKS (ubo, ssbo, etc)
-        for (auto& sb : stagingBuffers) {
-            sb.stagingBuffer.device = device;
-        }
-    }
     static std::array<bool, MAX_FRAMES_IN_FLIGHT> pendingMeshes = {};
     if (worldData.dirtyFlags.meshes) {
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) pendingMeshes[i] = true;

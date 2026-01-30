@@ -304,14 +304,17 @@ bool ThING::API::deleteInstance(const Entity e){
     switch (e.type) {
         case InstanceType::Polygon:
             polygonInstances[e.index].alive = false;
+            polygonInstances[e.index].objectID = 0;
             polygonFreeList.push_back(e);
             return true;
         case InstanceType::Circle:
             circleInstances[e.index].alive = false;
+            circleInstances[e.index].objectID = 0;
             circleFreeList.push_back(e);
             return true;
         case InstanceType::Line:
             lineInstances[e.index].alive = false;
+            lineInstances[e.index].objectID = 0;
             lineFreeList.push_back(e);
             return true;
         case InstanceType::Count: std::unreachable();

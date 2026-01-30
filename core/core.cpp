@@ -104,7 +104,7 @@ void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::
 
         auto scanMax = [&](std::span<InstanceData> arr) {
             for (const InstanceData& inst : arr) {
-                if (inst.objectID != 0) {
+                if (inst.objectID != 0 && inst.alive) {
                     if (inst.objectID > maxId) maxId = inst.objectID;
                 }
             }
