@@ -46,6 +46,7 @@ namespace ThING{
         Entity addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color);
         bool playAudio(const std::string& soundFile);
         bool playAudio(const std::string& soundFile, uint8_t volume);
+        void setVolume(uint8_t volume) {this->volume = volume;}
 
         void updateOutlines() {dirtyFlags.ssbo = true;}
     private:
@@ -72,6 +73,7 @@ namespace ThING{
         DirtyFlags dirtyFlags;
 
         ma_engine audioEngine;
+        uint8_t volume;
         ProtoThiApp app;
 
         uint8_t apiFlags;

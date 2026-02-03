@@ -36,6 +36,8 @@ ThING::API::API() : app(){
     polygonFreeList = {};
 
     apiFlags = 0;
+
+    volume = 255.f;
 }
 
 ThING::API::API(uint8_t flags) : API(){
@@ -388,7 +390,21 @@ Entity ThING::API::addLine(glm::vec2 point1, glm::vec2 point2, float width){
 }
 
 bool ThING::API::playAudio(const std::string& soundFile){
-    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), nullptr) != MA_SUCCESS){
+    static ma_sound_group playVolumeGroup{};
+    static uint8_t vol = 255.f;
+
+    static bool first = true;
+    if(first){
+        ma_sound_group_init(&audioEngine, 0, nullptr, &playVolumeGroup);
+        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
+
+        first = false;
+    }
+    if(vol != volume){
+        vol = volume;
+        ma_sound_group_set_volume(&playVolumeGroup, glm::pow((float)volume / 255.f, 2));
+    }
+    if(ma_engine_play_sound(&audioEngine, soundFile.c_str(), &playVolumeGroup) != MA_SUCCESS){
         return false;
     }
     return true;
