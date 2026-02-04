@@ -1,8 +1,6 @@
 #pragma once
 
 #include "ThING/types/renderData.h"
-#include <cstdint>
-#include <span>
 #include <vulkan/vulkan_core.h>
 
 class PipelineManager;

@@ -1,21 +1,16 @@
 #pragma once
-#include <ThING/types/apiTypes.h>
-#include <ThING/types/renderData.h>
-#include "ThING/types/contexts.h"
 #include "ThING/types/enums.h"
 #include "glm/fwd.hpp"
 #include <ThING/core.h>
 #include <cstddef>
 #include <cstdint>
-#include <string>
-#include <sys/types.h>
-#include <vector>
 #include <miniaudio.h>
-
+#include <ThING/extras/fpsCounter.h>
 
 const uint8_t ApiFlags_None = 0;
 const uint8_t ApiFlags_UpdateCallbackFirst = 1 << 0;
 
+struct Entity;
 
 namespace ThING{
     class API{
@@ -48,6 +43,7 @@ namespace ThING{
         bool playAudio(const std::string& soundFile, uint8_t volume);
         void setVolume(uint8_t volume) {this->volume = volume;}
 
+        void clearInstanceVector(InstanceType type);
         void updateOutlines() {dirtyFlags.ssbo = true;}
     private:
         // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed

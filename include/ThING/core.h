@@ -1,26 +1,17 @@
 #pragma once
 
-#include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
-#include <span>
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #ifdef DEBUG
     #include <iostream>
 #endif
-#include <vector>
-#include <cstdint>
 
-#include <ThING/consts.h>
 #include <ThING/graphics/bufferManager.h>
 #include <ThING/graphics/pipelineManager.h>
 #include <ThING/window/windowManager.h>
 #include <ThING/graphics/swapChainManager.h>
 #include <ThING/graphics/commandBufferManager.h>
-#include <ThING/extras/handMade.h>
-#include <ThING/extras/fpsCounter.h>
-#include <ThING/types.h>
 
 namespace ThING{
     class API;

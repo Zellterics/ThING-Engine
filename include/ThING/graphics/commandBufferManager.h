@@ -1,10 +1,8 @@
 #pragma once
 
-#include "ThING/types/renderData.h"
 #include "ThING/types/renderImage.h"
 #include <ThING/types/contexts.h>
 #include <sys/types.h>
-#include <vector>
 #include <vulkan/vulkan_core.h>
 
 class CommandBufferManager{

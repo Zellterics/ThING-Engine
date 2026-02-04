@@ -2,21 +2,10 @@
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/swapChainManager.h"
-#include <array>
-#include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <span>
-#include <string>
 #include <ThING/extras/handMade.h>
-#include <ThING/consts.h>
 #include <vulkan/vulkan_core.h>
-#include <ThING/types/buffer.h>
-#include <ThING/types/renderData.h>
-#include <ThING/types/uniformBufferObject.h>
-#include <ThING/types/vertex.h>
-#include <ThING/types/enums.h>
 #include <ThING/types/descriptor.h>
 
 class PipelineManager{

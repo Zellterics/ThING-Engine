@@ -1,3 +1,4 @@
+#include "ThING/types/apiTypes.h"
 #include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
@@ -432,4 +433,25 @@ bool ThING::API::playAudio(const std::string& soundFile, uint8_t volume){
         return false;
     }
     return true;
+}
+
+void ThING::API::clearInstanceVector(InstanceType type){
+    switch (type) {
+        case InstanceType::Circle:
+            circleInstances.clear();
+            circleFreeList.clear();
+            break;
+        case InstanceType::Line:
+            lineInstances.clear();
+            lineFreeList.clear();
+            break;
+        case InstanceType::Polygon:
+            polygonInstances.clear();
+            polygonMeshes.clear();
+            polygonFreeList.clear();
+            break;
+        case InstanceType::Count:
+            std::unreachable();
+            break;
+    }
 }

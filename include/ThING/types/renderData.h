@@ -1,12 +1,7 @@
 #pragma once
 #include "ThING/types/enums.h"
 #include "ThING/types/vertex.h"
-#include "glm/fwd.hpp"
-#include <array>
-#include <cstdint>
-#include <glm/glm.hpp>
 #include <span>
-#include <vector>
 
 struct InstanceData {
     glm::vec2 position;

@@ -1,16 +1,8 @@
 #pragma once
-#include "ThING/types/buffer.h"
-#include "ThING/types/enums.h"
-#include "ThING/types/renderData.h"
-#include <array>
-#include <cstddef>
-#include <span>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
-#include <vector>
 #include <ThING/consts.h>
 #include <ThING/types/dynamicBuffer.h>
-#include <ThING/types/vertex.h>
 #include <ThING/types/uniformBufferObject.h>
 
 class BufferManager{

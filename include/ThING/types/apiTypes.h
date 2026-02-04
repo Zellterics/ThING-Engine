@@ -1,8 +1,8 @@
 #pragma once
 
 #include "ThING/types/enums.h"
-#include <ThING/types.h>
-#include <cstdint>
+#include <cassert>
+#include <limits>
 #include <functional>
 
 struct Entity{
