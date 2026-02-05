@@ -39,6 +39,8 @@ ThING::API::API() : app(){
     apiFlags = 0;
 
     volume = 255.f;
+
+    EXIT_ = false;
 }
 
 ThING::API::API(uint8_t flags) : API(){
@@ -98,6 +100,9 @@ void ThING::API::mainLoop() {
         app.renderFrame();
         
         fps.endFrame();
+        if(EXIT_){
+            break;
+        }
     }
     vkDeviceWaitIdle(app.device);
 }

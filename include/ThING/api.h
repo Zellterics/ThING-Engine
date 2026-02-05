@@ -45,6 +45,8 @@ namespace ThING{
 
         void clearInstanceVector(InstanceType type);
         void updateOutlines() {dirtyFlags.ssbo = true;}
+
+        void EXIT(){EXIT_ = true;}
     private:
         // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed
         Entity addCircle(InstanceData&& instance);
@@ -73,5 +75,7 @@ namespace ThING{
         ProtoThiApp app;
 
         uint8_t apiFlags;
+
+        bool EXIT_ = false;
     };
 }
