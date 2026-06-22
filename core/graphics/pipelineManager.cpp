@@ -218,7 +218,7 @@ void PipelineManager::createDescriptorSet(BufferManager& bufferManager, SwapChai
     allocInfo.descriptorSetCount = MAX_FRAMES_IN_FLIGHT;
     allocInfo.pSetLayouts = layouts.data();
 
-    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets[toIndex(type)].data()) != VK_SUCCESS) {
+    if (vkAllocateDescriptorSets(device, &allocInfo, graphicsDescriptorSets[toIndex(type)].data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
@@ -250,7 +250,7 @@ void PipelineManager::createDescriptorSet(BufferManager& bufferManager, SwapChai
         for(const DescriptorBindingDesc& binding : descriptorLayouts[toIndex(type)]){
             VkWriteDescriptorSet writes{};
             writes.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            writes.dstSet = descriptorSets[toIndex(type)][i];
+            writes.dstSet = graphicsDescriptorSets[toIndex(type)][i];
             writes.dstBinding = binding.binding;
             writes.descriptorCount = 1;
             switch (binding.type) {
@@ -502,6 +502,11 @@ void PipelineManager::updateDescriptorSets(uint32_t currentFrame, BufferManager&
     for(size_t i = 0; i < GRAPHICS_PIPELINE_COUNT; i++){
         updateDescriptorSet(currentFrame, bufferManager, swapChainManager, imageIndex, static_cast<PipelineType>(i));
     }
+    // for(size_t i = 0; i < COMPUTE_PIPELINE_COUNT; i++){
+    //     updateJFADescriptorSet(currentFrame, swapChainManager); // Use this if more Compute shaders are added
+    // }
+    updateJFADescriptorSet(currentFrame, swapChainManager);
+
 }
 
 void PipelineManager::updateDescriptorSet(uint32_t currentFrame, BufferManager& bufferManager, SwapChainManager& swapChainManager, uint32_t imageIndex, PipelineType type) {
@@ -531,7 +536,7 @@ void PipelineManager::updateDescriptorSet(uint32_t currentFrame, BufferManager& 
     for (const DescriptorBindingDesc& binding : descriptorLayouts[toIndex(type)]) {
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = descriptorSets[toIndex(type)][currentFrame];
+        write.dstSet = graphicsDescriptorSets[toIndex(type)][currentFrame];
         write.dstBinding = binding.binding;
         write.dstArrayElement = 0;
         write.descriptorCount = 1;
@@ -565,4 +570,52 @@ void PipelineManager::updateDescriptorSet(uint32_t currentFrame, BufferManager& 
     }
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+}
+
+void PipelineManager::updateJFADescriptorSet(uint32_t currentFrame, SwapChainManager& swapChainManager) {
+    VkDescriptorImageInfo pingInfo{};
+    pingInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    pingInfo.imageView = swapChainManager.viewJFAPingImages().view;
+    pingInfo.sampler = VK_NULL_HANDLE;
+
+    VkDescriptorImageInfo pongInfo{};
+    pongInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    pongInfo.imageView = swapChainManager.viewJFAPongImages().view;
+    pongInfo.sampler = VK_NULL_HANDLE;
+
+    VkDescriptorImageInfo seedInfo{};
+    seedInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    seedInfo.imageView = swapChainManager.viewSeedImages().view;
+    seedInfo.sampler = VK_NULL_HANDLE;
+
+    std::array<VkWriteDescriptorSet, 3> writes{};
+
+    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[0].dstSet = JFADescriptorSets[currentFrame];
+    writes[0].dstBinding = 0;
+    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writes[0].descriptorCount = 1;
+    writes[0].pImageInfo = &pingInfo;
+
+    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[1].dstSet = JFADescriptorSets[currentFrame];
+    writes[1].dstBinding = 1;
+    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writes[1].descriptorCount = 1;
+    writes[1].pImageInfo = &pongInfo;
+
+    writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writes[2].dstSet = JFADescriptorSets[currentFrame];
+    writes[2].dstBinding = 3;
+    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    writes[2].descriptorCount = 1;
+    writes[2].pImageInfo = &seedInfo;
+
+    vkUpdateDescriptorSets(
+        device,
+        static_cast<uint32_t>(writes.size()),
+        writes.data(),
+        0,
+        nullptr
+    );
 }

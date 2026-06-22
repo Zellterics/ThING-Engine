@@ -31,7 +31,7 @@ public:
     inline std::span<const VkRenderPass> viewRenderPasses() const {return renderPasses;}
     inline std::span<const VkPipelineLayout> viewLayouts() const {return pipelineLayouts;}
     inline std::span<const VkPipeline> viewPipelines() const {return pipelines;}
-    inline std::span<const std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>> viewDescriptorSets() const {return descriptorSets;}
+    inline std::span<const std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>> viewDescriptorSets() const {return graphicsDescriptorSets;}
     inline std::span<const VkDescriptorSet> viewJFADescriptorSets() const {return JFADescriptorSets;}
     
 private:
@@ -50,6 +50,7 @@ private:
     void createImGuiRenderPass(const VkFormat& swapChainImageFormat);
 
     void createJFADescriptorSets(SwapChainManager& swapChainManager);
+    void updateJFADescriptorSet(uint32_t currentFrame, SwapChainManager& swapChainManager);
     void writeJFADescriptorSet( uint32_t frameIndex, const RenderImage& ping, const RenderImage& pong, const RenderImage& idImage, const RenderImage& seedImage);
 
     void createDescriptorSet(BufferManager& bufferManager, SwapChainManager& swapChainManager, PipelineType type);
@@ -65,7 +66,7 @@ private:
     std::array<VkPipelineLayout, toIndex(PipelineType::Count)> pipelineLayouts;
     std::array<VkPipeline, toIndex(PipelineType::Count)> pipelines;
     std::array<VkDescriptorSetLayout, toIndex(PipelineType::Count)> descriptorSetLayouts;
-    std::array<std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>, GRAPHICS_PIPELINE_COUNT> descriptorSets; // Change to graphicsDescriptorSets use PipeLineType::Count and new computePipelineCount Const
+    std::array<std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>, GRAPHICS_PIPELINE_COUNT> graphicsDescriptorSets; // Change to graphicsDescriptorSets use PipeLineType::Count and new computePipelineCount Const
     std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> JFADescriptorSets;
     VkDescriptorPool descriptorPool;
     VkDevice device;
