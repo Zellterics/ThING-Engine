@@ -175,9 +175,9 @@ void SwapChainManager::createImageView(RenderImage& image){
 }
 
 void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
-    jfaPing.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    jfaPing.format = VK_FORMAT_R16G16B16A16_SINT;
     jfaPing.extent = swapChainExtent;
-    jfaPong.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    jfaPong.format = VK_FORMAT_R16G16B16A16_SINT;
     jfaPong.extent = swapChainExtent;
     createImage(jfaPing, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     createImage(jfaPong, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
@@ -188,7 +188,7 @@ void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
 }
 
 void SwapChainManager::createSeedAttachments(VkPhysicalDevice physicalDevice){
-    seedImages.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    seedImages.format = VK_FORMAT_R16G16_SINT;
     seedImages.extent = swapChainExtent;
     createImage(seedImages, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
     createImageMemory(seedImages, physicalDevice);

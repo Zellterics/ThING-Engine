@@ -6,7 +6,7 @@ layout(set = 0, binding = 0) uniform UBO {
 } ubo;
 
 layout(set = 0, binding = 1) uniform isampler2D idTex;      // rg (objectID, drawIndex)
-layout(set = 0, binding = 2) uniform sampler2D  jfaResult; // rg = seed
+layout(set = 0, binding = 2) uniform isampler2D  jfaResult; // rg = seed
 
 layout(location = 0) out vec4 outColor;
 
@@ -29,13 +29,10 @@ float ringSD(float sd, float inner, float outer, float aa)
     return aIn * aOut;
 }
 
-bool isValidSeed(vec2 s, ivec2 size)
+bool isValidSeed(ivec2 s, ivec2 size)
 {
-    if (s.x < 0.0 || s.y < 0.0) return false;
-    if (s.x >= float(size.x) || s.y >= float(size.y)) return false;
-
-    vec2 f = fract(s);
-    return abs(f.x - 0.5) < 0.02 && abs(f.y - 0.5) < 0.02;
+    return s.x >= 0 && s.y >= 0 &&
+           s.x < size.x && s.y < size.y;
 }
 
 void main()
@@ -58,13 +55,13 @@ void main()
         centerHasOutline = (centerO.alive != 0);
     }
 
-    vec2 centerSeed = texelFetch(jfaResult, p, 0).xy;
+    ivec2 centerSeed = texelFetch(jfaResult, p, 0).xy;
     if (!isValidSeed(centerSeed, texSize))
         discard;
 
-    vec2 s = centerSeed;
+    ivec2 s = centerSeed;
 
-    ivec2 d = texelFetch(idTex, ivec2(s), 0).rg;
+    ivec2 d = texelFetch(idTex, s, 0).rg;
     int id        = d.x;
     int drawIndex = d.y;
 
@@ -102,7 +99,7 @@ void main()
     float aa            = aa_world * zoom;
     float outlineInner  = max(R - 0.01 * zoom, 0.0);
 
-    float dist = length(s - worldPos);
+    float dist = length((vec2(s) + vec2(0.5)) - worldPos);
     float sd   = dist - R;
 
     bool touches =

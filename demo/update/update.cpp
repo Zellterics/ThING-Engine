@@ -2,6 +2,7 @@
 #include <ThING/core.h>
 #include <ThING/extras/handMade.h>
 #include "ThING/api.h"
+#include "ThING/types/apiTypes.h"
 #include "ThING/types/enums.h"
 #include "ThING/types/renderData.h"
 #include "glm/fwd.hpp"
@@ -42,13 +43,16 @@ void update(ThING::API& api, FPSCounter& fps){
 
                 float circleSize = getRandomNumber(SMALLER_RADIUS, BIGGER_RADIUS);
                 count++;
-                // glm::vec4 color = {getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), 1};
+                glm::vec4 color = {getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), getRandomNumber(0.0f, 1.0f), 1};
 
                 Entity e = api.addCircle(pos, circleSize, {0,0,1,1.f});
                 circleInstances = api.getInstanceVector(InstanceType::Circle);        
 
+                api.getInstance(e).objectID = count;
                 api.getInstance(e).outlineSize = 5;
-                api.getInstance(e).outlineColor = {0, 0, 1, .4f};
+                api.getInstance(e).outlineColor = color;
+                api.getInstance(e).drawIndex = 20;
+                api.updateOutlines();
                 
                 if (e.index < circlePhysics.size()) {
                     circlePhysics[e.index] = {pos, pos, {0.f, 0.f}};

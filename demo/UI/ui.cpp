@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "glm/fwd.hpp"
 #include "imgui.h"
+#include "ThING/types/apiTypes.h"
 #include "imgui_internal.h"
 #include "../globals.h"
 #include <ThING/extras/imGuiCustom.h>

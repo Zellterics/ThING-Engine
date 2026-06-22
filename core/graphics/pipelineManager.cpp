@@ -357,7 +357,7 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     idAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     
     VkAttachmentDescription seedAttachment{};
-    seedAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    seedAttachment.format = VK_FORMAT_R16G16_SINT;
     seedAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     seedAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     seedAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

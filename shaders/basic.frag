@@ -9,7 +9,7 @@ layout(location = 5) flat in int  vDrawIndex;
 
 layout(location = 0) out vec4  outColor;
 layout(location = 1) out ivec2 outObjectID;
-layout(location = 2) out vec4  outSeed;
+layout(location = 2) out ivec2  outSeed;
 
 const float MIN_DRAW_INDEX = -50000.0;
 const float MAX_DRAW_INDEX =  50000.0;
@@ -48,10 +48,10 @@ void main()
     outColor = vec4(vColor.rgb, alpha);
 
     if (vOutlineSize > 0u) {
-        outSeed     = vec4(gl_FragCoord.xy, 0.0, 0.0);
+        outSeed     = ivec2(gl_FragCoord.xy);
         outObjectID = ivec2(int(vObjectID), vDrawIndex);
     } else {
-        outSeed     = vec4(-1.0, -1.0, 0.0, 0.0);
+        outSeed     = ivec2(-1.0, -1.0);
         outObjectID = ivec2(-1, vDrawIndex);
     }
 }
