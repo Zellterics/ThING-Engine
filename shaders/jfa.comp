@@ -1,8 +1,8 @@
 #version 450
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(set = 0, binding = 0, rgba16i) uniform iimage2D ping;
-layout(set = 0, binding = 1, rgba16i) uniform iimage2D pong;
+layout(set = 0, binding = 0, rg16i) uniform iimage2D ping;
+layout(set = 0, binding = 1, rg16i) uniform iimage2D pong;
 // rg = s1
 // ba = s2
 
@@ -18,15 +18,15 @@ layout(push_constant) uniform Push {
     int readFromPing;
 } pc;
 
-ivec4 loadSrc(ivec2 c) {
+ivec2 loadSrc(ivec2 c) {
     return (pc.readFromPing == 1)
-        ? imageLoad(ping, c)
-        : imageLoad(pong, c);
+        ? imageLoad(ping, c).xy
+        : imageLoad(pong, c).xy;
 }
 
-void storeDst(ivec2 c, ivec4 v) {
-    if (pc.readFromPing == 1) imageStore(pong, c, v);
-    else                      imageStore(ping, c, v);
+void storeDst(ivec2 c, ivec2 v) {
+    if (pc.readFromPing == 1) imageStore(pong, c, ivec4(v, 0, 0));
+    else                      imageStore(ping, c, ivec4(v, 0, 0));
 }
 
 bool isValidSeed(ivec2 s, ivec2 size) {
@@ -50,32 +50,26 @@ void main()
         if (isValidSeed(selfSeed, size))
             s1 = selfSeed;
 
-        storeDst(coord, ivec4(s1, ivec2(-1)));
+        storeDst(coord, s1);
         return;
     }
 
-    ivec4 prev = loadSrc(coord);
+    ivec2 prev = loadSrc(coord);
 
     ivec2 best1 = ivec2(-1);
     int bestD1 = 2147483647;
-
-    ivec2 best2 = ivec2(-1);
-    int bestD2 = 2147483647;
 
     #define CONSIDER(cand) \
         if (isValidSeed(cand, size)) { \
             ivec2 delta = cand - coord; \
             int d = delta.x * delta.x + delta.y * delta.y; \
             if (d < bestD1) { \
-                bestD2 = bestD1; best2 = best1; \
                 bestD1 = d;      best1 = cand;  \
-            } else if (d < bestD2 && cand != best1) { \
-                bestD2 = d; best2 = cand; \
             } \
         }
 
-    CONSIDER(prev.xy);
-    CONSIDER(prev.zw);
+    CONSIDER(loadSrc(coord));
+    CONSIDER(selfSeed);
 
     if (isValidSeed(selfSeed, size))
         CONSIDER(selfSeed);
@@ -85,11 +79,10 @@ void main()
             ivec2 n = coord + ivec2(dx, dy) * j;
             if (n.x < 0 || n.y < 0 || n.x >= size.x || n.y >= size.y) continue;
 
-            ivec4 ns = loadSrc(n);
+            ivec2 ns = loadSrc(n);
             CONSIDER(ns.xy);
-            CONSIDER(ns.zw);
         }
     }
 
-    storeDst(coord, ivec4(best1, best2));
+    storeDst(coord, best1);
 }

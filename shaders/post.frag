@@ -1,5 +1,5 @@
 #version 450
-
+//LATER ADD CHECKS FOR DRAW INDEX, SO THE OUTLINE WONT BE OVER OTHER NON OUTLINED OBJECTS
 layout(set = 0, binding = 0) uniform UBO {
     mat4 projection;
     vec2 viewportSize;
