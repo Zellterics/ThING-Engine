@@ -177,7 +177,6 @@ add_dependencies(ThING ThING_Shaders)
 target_include_directories(ThING PRIVATE ${SHADER_GEN_DIR})
 
 target_compile_features(ThING PUBLIC cxx_std_23)
-target_compile_definitions(ThING PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 
 target_include_directories(ThING
     PUBLIC

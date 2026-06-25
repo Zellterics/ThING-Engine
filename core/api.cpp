@@ -41,6 +41,9 @@ ThING::API::API() : app(){
     volume = 255.f;
 
     EXIT_ = false;
+
+    app.initVulkan();
+    app.initImGui();
 }
 
 ThING::API::API(uint8_t flags) : API(){
@@ -52,8 +55,6 @@ ThING::API::~API(){
 }
 
 void ThING::API::run(){
-    app.initVulkan();
-    app.initImGui();
     mainLoop();
     app.cleanup();
 }

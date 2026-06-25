@@ -11,6 +11,7 @@ endif()
 set(THING_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
 
 add_subdirectory("${THING_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/thing-build")
+target_compile_definitions(ThING PUBLIC $<$<CONFIG:Debug>:DEBUG>)
 
 file(GLOB_RECURSE DEMO_SOURCES CONFIGURE_DEPENDS
     globals.cpp
