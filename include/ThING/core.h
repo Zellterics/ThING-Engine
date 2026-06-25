@@ -57,7 +57,7 @@ private:
     glm::vec2 offset;
     std::vector<VkClearValue> clearColor;
 
-    void initVulkan();
+    void initVulkan(VkPresentModeKHR prefferedPresentMode = VK_PRESENT_MODE_MAILBOX_KHR);
     void initImGui();
     void mainLoop();
     

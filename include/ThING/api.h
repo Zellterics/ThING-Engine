@@ -9,7 +9,8 @@
 
 enum ApiFlags : uint8_t{
     ApiFlags_None = 0,
-    ApiFlags_UpdateCallbackFirst = 1 << 0
+    ApiFlags_UpdateCallbackFirst = 1 << 0,
+    ApiFlags_UseFullFPS = 1 << 1
 };
 
 struct Entity;
@@ -91,7 +92,7 @@ namespace ThING{
         uint8_t volume;
         ProtoThiApp app;
 
-        uint8_t apiFlags;
+        uint8_t apiFlags = 0;
 
         bool EXIT_ = false;
     };

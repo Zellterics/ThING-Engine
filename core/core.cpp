@@ -2,6 +2,7 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <cstdint>
 #include <cstring>
+#include <vulkan/vulkan_core.h>
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/pipelineManager.h"
@@ -28,10 +29,10 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
     worldData.polygonOffset = 0;
 }
 
-void ProtoThiApp::initVulkan() {
+void ProtoThiApp::initVulkan(VkPresentModeKHR prefferedPresentMode) {
     createInstance();
     setupDebugMessenger();
-    swapChainManager = SwapChainManager{instance, windowManager.getWindow()};
+    swapChainManager = SwapChainManager{instance, windowManager.getWindow(), prefferedPresentMode};
     pickPhysicalDevice();
     createLogicalDevice();
     commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());

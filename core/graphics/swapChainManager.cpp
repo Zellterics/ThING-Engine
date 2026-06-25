@@ -12,7 +12,8 @@
 #include <ThING/consts.h>
 #include <cstdint>
 
-SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window){
+SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window, VkPresentModeKHR preferredPresentMode){
+    this->preferredPresentMode = preferredPresentMode;
     createSurface(instance, window);
 }
 
@@ -301,7 +302,7 @@ VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<V
 
 VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
     for (const auto& availablePresentMode : availablePresentModes) {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
+        if (availablePresentMode == preferredPresentMode) {
             return availablePresentMode;
         }
     }

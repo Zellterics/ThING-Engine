@@ -10,7 +10,7 @@
 class SwapChainManager{
 public:
     SwapChainManager() = default;
-    SwapChainManager(VkInstance& instance, GLFWwindow* window);
+    SwapChainManager(VkInstance& instance, GLFWwindow* window, VkPresentModeKHR prefferedPresentMode = VK_PRESENT_MODE_MAILBOX_KHR);
     void createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window);
     void recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses);
     void createSurface(VkInstance& instance, GLFWwindow* window);
@@ -87,4 +87,6 @@ private:
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
+
+    VkPresentModeKHR preferredPresentMode;
 };

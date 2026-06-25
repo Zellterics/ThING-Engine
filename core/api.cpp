@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <utility>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 #define MINIAUDIO_IMPLEMENTATION
 #include <ThING/api.h>
 #include "imgui.h"
@@ -22,7 +23,8 @@
 #include "backends/imgui_impl_vulkan.h"
 
 //CONSTRUCTOR
-ThING::API::API() : app(){
+ThING::API::API(uint8_t flags) : app(){
+    apiFlags = flags;
     if (ma_engine_init(nullptr, &audioEngine) != MA_SUCCESS){
         assert("ERROR: Initializing audio engine");
     }
@@ -36,18 +38,18 @@ ThING::API::API() : app(){
     circleFreeList = {};
     polygonFreeList = {};
 
-    apiFlags = 0;
-
     volume = 255.f;
-
+    
     EXIT_ = false;
-
-    app.initVulkan();
+    if(apiFlags & ApiFlags_UseFullFPS){
+        app.initVulkan(VK_PRESENT_MODE_IMMEDIATE_KHR);
+    } else {
+        app.initVulkan();
+    }
     app.initImGui();
 }
 
-ThING::API::API(uint8_t flags) : API(){
-    apiFlags = flags;
+ThING::API::API() : ThING::API(0){
 }
 
 ThING::API::~API(){
