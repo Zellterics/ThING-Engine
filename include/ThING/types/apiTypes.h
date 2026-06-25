@@ -32,6 +32,12 @@ struct Entity{
         }
         return false;
     }
+    bool valid(){
+        if(this->index == std::numeric_limits<uint32_t>::max() || this->type == InstanceType::Count){
+            return false;
+        }
+        return true;
+    }
 };
 
 namespace std {
