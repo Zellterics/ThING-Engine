@@ -45,7 +45,9 @@ void ProtoThiApp::createInstance() {
         createInfo.pNext = nullptr;
     }
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
+    VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
+    if (result != VK_SUCCESS) {
+        //std::cerr << "vkCreateInstance failed: " << result << std::endl;
         throw std::runtime_error("failed to create instance!");
     }
 }
@@ -61,14 +63,17 @@ void ProtoThiApp::pickPhysicalDevice() {
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    for (const auto& device : devices) {
-        if (isDeviceSuitable(device)) {
+    int deviceScore = 0;
+
+    for (const VkPhysicalDevice& device : devices) {
+        int score = rateDeviceSuitable(device);
+        if (score > deviceScore) {
             physicalDevice = device;
-            break;
+            deviceScore = score;
         }
     }
 
-    if (physicalDevice == VK_NULL_HANDLE) {
+    if (physicalDevice == VK_NULL_HANDLE || deviceScore == 0) {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
 }
@@ -114,7 +119,15 @@ void ProtoThiApp::createLogicalDevice() {
 
 // Is Device Suitable functions
 
-bool ProtoThiApp::isDeviceSuitable(VkPhysicalDevice device) {
+int ProtoThiApp::rateDeviceSuitable(VkPhysicalDevice device) {
+    int score = 0;
+    
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
     QueueFamilyIndices indices = findQueueFamilies(device, swapChainManager.getSurface());
 
     bool extensionsSupported = checkDeviceExtensionSupport(device);
@@ -124,8 +137,21 @@ bool ProtoThiApp::isDeviceSuitable(VkPhysicalDevice device) {
         SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device, swapChainManager.getSurface());
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
+    if(!(indices.isComplete() && extensionsSupported && swapChainAdequate)){
+        return 0;
+    }
 
-    return indices.isComplete() && extensionsSupported && swapChainAdequate;
+    if(deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
+        score += 1000;
+    }
+
+    score += deviceProperties.limits.maxImageDimension2D;
+
+    if(!deviceFeatures.geometryShader){
+        return 0;
+    }
+    
+    return score;
 }
 
 bool ProtoThiApp::checkDeviceExtensionSupport(VkPhysicalDevice device) {

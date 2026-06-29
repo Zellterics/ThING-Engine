@@ -75,7 +75,7 @@ private:
 
     void drawFrame();
     
-    bool isDeviceSuitable(VkPhysicalDevice device);
+    int rateDeviceSuitable(VkPhysicalDevice device);
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
     std::vector<const char*> getRequiredExtensions();
     bool checkValidationLayerSupport();

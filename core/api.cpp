@@ -422,6 +422,7 @@ bool ThING::API::playAudio(const std::string& soundFile){
 bool ThING::API::playAudio(const std::string& soundFile, uint8_t volume){
     //Can be optimized by replaying instead of reloading, not high performance impact right now to bother
     //Do if you/I need to play a lot of sounds at high speeds
+    volume = this->volume * volume / 255.f;
     static bool first = true;
     static ma_sound_group playVolumeGroup{};
     static uint8_t vol = volume;
