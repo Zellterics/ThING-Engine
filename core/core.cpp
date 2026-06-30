@@ -2,6 +2,7 @@
 #include <ThING/extras/vulkanSupport.h>
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
 #include <vulkan/vulkan_core.h>
 
 #include "ThING/graphics/bufferManager.h"
@@ -20,8 +21,8 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
     offset = {0, 0};
     clearColor.resize(4);
     clearColor[0].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-    clearColor[1].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
-    clearColor[2].color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+    clearColor[1].color = {{-1.0f, -1.0f, 0.0f, 0.0f}};
+    clearColor[2].color = {{-1.0f, -1.0f, 0.0f, 0.0f}};
     clearColor[3].depthStencil = {1.0f, 0};
     currentFrame = 0;
     worldData.meshes = {};
@@ -31,6 +32,7 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
 
 void ProtoThiApp::initVulkan(VkPresentModeKHR prefferedPresentMode) {
     createInstance();
+    zlog.info("Instance Created");
     setupDebugMessenger();
     swapChainManager = SwapChainManager{instance, windowManager.getWindow(), prefferedPresentMode};
     pickPhysicalDevice();
@@ -97,6 +99,9 @@ void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::
     worldData.polygonInstances = polygonInstances;
     worldData.meshes = meshes;
 
+    maxOutlineSize = 0;
+    float fMaxOutlineSize = 0;
+
     worldData.polygonOffset = circleInstances.size() + lineInstances.size();
 
     if (dirtyFlags.ssbo) {
@@ -130,7 +135,7 @@ void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::
                 if (id == 0) continue;
 
                 if (id >= worldData.ssboData.size()) continue;
-
+                fMaxOutlineSize = std::max(inst.outlineSize, fMaxOutlineSize);
                 const uint32_t enabled = (inst.alive && inst.outlineSize > 0.0f) ? 1u : 0u;
                 worldData.ssboData[id] = { inst.outlineColor, inst.outlineSize, inst.groupID, enabled };
             }
@@ -139,6 +144,7 @@ void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::
         writeSpan(circleInstances);
         writeSpan(lineInstances);
         writeSpan(polygonInstances);
+        maxOutlineSize = (fMaxOutlineSize * zoom);
     }
 }
 
@@ -159,7 +165,7 @@ void ProtoThiApp::drawFrame() {
 
     vkResetCommandBuffer(commandBufferManager.viewCommandBufferOnFrame(currentFrame), 0);
 
-    RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount};
+    RenderContext renderContext = {currentFrame, worldData, bufferManager, indirectCommandCount, maxOutlineSize};
     FrameContext frameContext{imageIndex, clearColor, pipelineManager, swapChainManager};
     pipelineManager.updateDescriptorSets(currentFrame, bufferManager, swapChainManager, imageIndex);
 

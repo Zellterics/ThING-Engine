@@ -1,6 +1,7 @@
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
 #include <cstring>
+#include <vulkan/vulkan_core.h>
 
 void ProtoThiApp::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
     createInfo = {};
@@ -8,6 +9,7 @@ void ProtoThiApp::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateIn
     createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
     createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = debugCallback;
+    createInfo.pUserData = this;
 }
 
 void ProtoThiApp::setupDebugMessenger() {

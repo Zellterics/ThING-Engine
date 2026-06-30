@@ -83,7 +83,7 @@ Install the Vulkan SDK from the official LunarG website.
 
 ### Linux
 #### Arch
-Run `sudo pacman -S vulkan-headers vulkan-icd-loader vulkan-tools vulkan-validation-layers` to install the Vulkan tools and validation layers.
+Run `sudo pacman -S vulkan-headers vulkan-icd-loader vulkan-tools vulkan-validation-layers vulkan-utility-libraries` to install the Vulkan tools and validation layers.
 
 #### Other
 Install the Vulkan loader, tools and validation layers using your distribution's package manager.

@@ -1,11 +1,11 @@
 #pragma once
 
 #include "glm/fwd.hpp"
+#include <cstdint>
+#include <vulkan/vk_enum_string_helper.h>
 #define GLFW_INCLUDE_VULKAN
 #include <glm/glm.hpp>
-#ifdef DEBUG
-    #include <iostream>
-#endif
+#include "../external/zlog.h"
 
 #include <ThING/graphics/bufferManager.h>
 #include <ThING/graphics/pipelineManager.h>
@@ -24,6 +24,11 @@ public:
 
     friend class ::ThING::API;
 private:
+    #ifdef DEBUG
+        Zlog zlog{"./Logs/ThING.log"};
+    #else
+        Zlog zlog{DisableLogger{}};
+    #endif
     WindowManager windowManager;
     BufferManager bufferManager;
     PipelineManager pipelineManager;
@@ -56,6 +61,7 @@ private:
     float zoom;
     glm::vec2 offset;
     std::vector<VkClearValue> clearColor;
+    uint32_t maxOutlineSize = 0;
 
     void initVulkan(VkPresentModeKHR prefferedPresentMode = VK_PRESENT_MODE_MAILBOX_KHR);
     void initImGui();
@@ -68,8 +74,6 @@ private:
         std::span<InstanceData> lineInstances, std::span<MeshData> meshes, DirtyFlags dirtyFlags);
     
     void createInstance();
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-    void setupDebugMessenger();
     void pickPhysicalDevice();
     void createLogicalDevice();
 
@@ -82,12 +86,12 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     
-
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    void setupDebugMessenger();
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
         VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
-        #ifdef DEBUG
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-        #endif
+        ProtoThiApp* app = static_cast<ProtoThiApp*>(pUserData);
+        app->zlog.debug("validation layer: {}", pCallbackData->pMessage);
         return VK_FALSE;
     }
 };

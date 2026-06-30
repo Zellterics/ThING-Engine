@@ -176,10 +176,14 @@ void SwapChainManager::createImageView(RenderImage& image){
 }
 
 void SwapChainManager::createJFAAttachments(VkPhysicalDevice physicalDevice){
+    VkExtent2D jfaExtent = {
+        std::max(1u, swapChainExtent.width / 2),
+        std::max(1u, swapChainExtent.height / 2)
+    };
     jfaPing.format = VK_FORMAT_R16G16_SINT;
-    jfaPing.extent = swapChainExtent;
+    jfaPing.extent = jfaExtent;
     jfaPong.format = VK_FORMAT_R16G16_SINT;
-    jfaPong.extent = swapChainExtent;
+    jfaPong.extent = jfaExtent;
     createImage(jfaPing, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     createImage(jfaPong, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
     createImageMemory(jfaPing, physicalDevice);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ThING/types/renderData.h"
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
 
 class PipelineManager;
@@ -21,4 +22,5 @@ struct RenderContext {
     const WorldData worldData;
     const BufferManager& bufferManager;
     uint32_t indirectCmdCount;
+    uint32_t maxOutlineSize = 0;
 };

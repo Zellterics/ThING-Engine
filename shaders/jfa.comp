@@ -37,52 +37,63 @@ bool isValidSeed(ivec2 s, ivec2 size) {
 void main()
 {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size  = imageSize(seedImage);
-    if (coord.x >= size.x || coord.y >= size.y) return;
+    ivec2 halfSize = imageSize(ping);
+    ivec2 fullSize = imageSize(seedImage);
 
-    ivec2 selfSeed = imageLoad(seedImage, coord).xy;
+    if (coord.x >= halfSize.x || coord.y >= halfSize.y)
+        return;
 
-    int j = max(pc.jump, 0);
+    int jump = max(pc.jump, 0);
 
-    if (j == 0) {
-        ivec2 s1 = ivec2(-1);
+    if (jump == 0) {
+        ivec2 bestSeed = ivec2(-1);
+        ivec2 base = coord * 2;
 
-        if (isValidSeed(selfSeed, size))
-            s1 = selfSeed;
+        for (int y = 0; y < 2; ++y) {
+            for (int x = 0; x < 2; ++x) {
+                ivec2 fullP = base + ivec2(x, y);
 
-        storeDst(coord, s1);
+                if (fullP.x >= fullSize.x || fullP.y >= fullSize.y)
+                    continue;
+
+                ivec2 seed = imageLoad(seedImage, fullP).xy;
+
+                if (isValidSeed(seed, fullSize))
+                    bestSeed = seed;
+            }
+        }
+
+        storeDst(coord, bestSeed);
         return;
     }
 
-    ivec2 prev = loadSrc(coord);
+    ivec2 bestSeed = ivec2(-1);
+    float bestDistance2 = 3.402823e38;
 
-    ivec2 best1 = ivec2(-1);
-    int bestD1 = 2147483647;
+    vec2 targetFull = vec2(coord * 2) + vec2(0.5);
 
-    #define CONSIDER(cand) \
-        if (isValidSeed(cand, size)) { \
-            ivec2 delta = cand - coord; \
-            int d = delta.x * delta.x + delta.y * delta.y; \
-            if (d < bestD1) { \
-                bestD1 = d;      best1 = cand;  \
+    #define CONSIDER(candidate) \
+        if (isValidSeed(candidate, fullSize)) { \
+            vec2 delta = vec2(candidate) - targetFull; \
+            float distance2 = dot(delta, delta); \
+            if (distance2 < bestDistance2) { \
+                bestDistance2 = distance2; \
+                bestSeed = candidate; \
             } \
         }
 
-    CONSIDER(loadSrc(coord));
-    CONSIDER(selfSeed);
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 neighbor = coord + ivec2(dx, dy) * jump;
 
-    if (isValidSeed(selfSeed, size))
-        CONSIDER(selfSeed);
+            if (neighbor.x < 0 || neighbor.y < 0 ||
+                neighbor.x >= halfSize.x || neighbor.y >= halfSize.y)
+                continue;
 
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
-            ivec2 n = coord + ivec2(dx, dy) * j;
-            if (n.x < 0 || n.y < 0 || n.x >= size.x || n.y >= size.y) continue;
-
-            ivec2 ns = loadSrc(n);
-            CONSIDER(ns.xy);
+            ivec2 candidate = loadSrc(neighbor);
+            CONSIDER(candidate);
         }
     }
 
-    storeDst(coord, best1);
+    storeDst(coord, bestSeed);
 }

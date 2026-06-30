@@ -2,6 +2,7 @@
 
 #include "ThING/types/renderImage.h"
 #include <ThING/types/contexts.h>
+#include <cstdint>
 #include <sys/types.h>
 #include <vulkan/vulkan_core.h>
 
@@ -34,7 +35,7 @@ private:
     void recordInstanceDraw(VkCommandBuffer& commandBuffer, const RenderContext& renderContext, const DrawBatch& drawBatch);
     void recordIndirectDraw(VkCommandBuffer& commandBuffer, const RenderContext& renderContext, uint32_t commandCount);
 
-    void recordJFAPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame);
+    void recordJFAPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame, uint32_t maxOutlineSize);
     void cmdDispatchJFA(VkCommandBuffer& commandBuffer, const FrameContext& frameContext);
     void cmdBindComputePipeline(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame);
     void cmdPipelineBarrier(VkCommandBuffer& commandBuffer, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkImageMemoryBarrier& barrier);

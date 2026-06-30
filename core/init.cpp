@@ -2,6 +2,7 @@
 #include <ThING/extras/vulkanSupport.h>
 
 #include <set>
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 void ProtoThiApp::createInstance() {
@@ -47,7 +48,7 @@ void ProtoThiApp::createInstance() {
 
     VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     if (result != VK_SUCCESS) {
-        //std::cerr << "vkCreateInstance failed: " << result << std::endl;
+        zlog.err("In {} -> vkCreateInstance failed: {}", Zlog::location() , string_VkResult(result));
         throw std::runtime_error("failed to create instance!");
     }
 }

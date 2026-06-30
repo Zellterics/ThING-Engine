@@ -22,95 +22,114 @@ layout(set = 0, binding = 3, std430) readonly buffer OutlineBuffer {
     OutlineData outlines[];
 };
 
-float ringSD(float sd, float inner, float outer, float aa)
+bool isValidSeed(ivec2 seed, ivec2 fullSize)
 {
-    float aIn  = smoothstep(-inner - aa, -inner + aa, sd);
-    float aOut = 1.0 - smoothstep(outer - aa, outer + aa, sd);
-    return aIn * aOut;
+    return seed.x >= 0 && seed.y >= 0 &&
+           seed.x < fullSize.x && seed.y < fullSize.y;
 }
 
-bool isValidSeed(ivec2 s, ivec2 size)
+ivec2 resolveSeed(
+    ivec2 fullP,
+    ivec2 halfP,
+    ivec2 halfSize,
+    ivec2 fullSize)
 {
-    return s.x >= 0 && s.y >= 0 &&
-           s.x < size.x && s.y < size.y;
+    ivec2 bestSeed = ivec2(-1);
+    float bestDistance2 = 3.402823e38;
+
+    for (int oy = -1; oy <= 1; ++oy) {
+        for (int ox = -1; ox <= 1; ++ox) {
+            ivec2 hp = halfP + ivec2(ox, oy);
+
+            if (hp.x < 0 || hp.y < 0 ||
+                hp.x >= halfSize.x || hp.y >= halfSize.y)
+                continue;
+
+            ivec2 candidate = texelFetch(jfaResult, hp, 0).xy;
+
+            if (!isValidSeed(candidate, fullSize))
+                continue;
+
+            vec2 delta = vec2(candidate - fullP);
+            float distance2 = dot(delta, delta);
+
+            if (distance2 < bestDistance2) {
+                bestDistance2 = distance2;
+                bestSeed = candidate;
+            }
+        }
+    }
+
+    return bestSeed;
 }
 
 void main()
 {
     float zoom = max((ubo.viewportSize.x * ubo.projection[0][0]) * 0.5, 1e-4);
 
-    ivec2 texSize  = textureSize(jfaResult, 0);
-    ivec2 p        = clamp(ivec2(gl_FragCoord.xy), ivec2(0), texSize - 1);
-    vec2  worldPos = vec2(p) + vec2(0.5);
+    ivec2 fullSize = textureSize(idTex, 0);
+    ivec2 halfSize = textureSize(jfaResult, 0);
 
-    ivec2 centerData = texelFetch(idTex, p, 0).rg;
-    int centerID        = centerData.x;
-    int centerDrawIndex = centerData.y;
+    ivec2 fullP = clamp(
+        ivec2(gl_FragCoord.xy),
+        ivec2(0),
+        fullSize - 1
+    );
 
-    bool centerHasOutline = false;
-    OutlineData centerO;
-
-    if (centerID >= 0) {
-        centerO = outlines[centerID];
-        centerHasOutline = (centerO.alive != 0);
-    }
-
-    ivec2 centerSeed = texelFetch(jfaResult, p, 0).xy;
-    if (!isValidSeed(centerSeed, texSize))
+    ivec2 centerData = texelFetch(idTex, fullP, 0).rg;
+    if (centerData.x >= 0)
         discard;
 
-    ivec2 s = centerSeed;
+    ivec2 halfP = clamp(fullP / 2, ivec2(0), halfSize - 1);
 
-    ivec2 d = texelFetch(idTex, s, 0).rg;
-    int id        = d.x;
-    int drawIndex = d.y;
+    ivec2 seed = resolveSeed(fullP, halfP, halfSize, fullSize);
+
+    if (!isValidSeed(seed, fullSize))
+        discard;
+
+    ivec2 seedData = texelFetch(idTex, seed, 0).rg;
+    int id = seedData.x;
+
+    if (id < 0)
+        discard;
 
     OutlineData o = outlines[id];
 
     if (o.alive == 0)
         discard;
 
-    bool wins;
+    float outer = max(o.outlineSize * zoom - 0.5, 0.0);
 
-    if (!centerHasOutline) {
-        wins =
-            (drawIndex > centerDrawIndex) ||
-            (drawIndex == centerDrawIndex && id > centerID);
-    }
-    else if (id == centerID) {
-        wins =
-            (drawIndex > centerDrawIndex) ||
-            (drawIndex == centerDrawIndex && id >= centerID);
-    }
-    else {
-        wins =
-            (drawIndex > centerDrawIndex) ||
-            (drawIndex == centerDrawIndex && id > centerID);
-    }
+    vec2 seedPos = vec2(seed) + vec2(0.5);
+    vec2 centerPos = vec2(fullP) + vec2(0.5);
 
-    if (!wins)
+    float centerDist = length(seedPos - centerPos);
+    float aa = max(0.5, fwidth(centerDist) * 0.75);
+
+    if (centerDist >= outer + aa + 0.36)
         discard;
 
-    float R_world  = 4.0;
-    float aa_world = 1.5;
+    const vec2 sampleOffsets[4] = vec2[4](
+        vec2(0.25, 0.25),
+        vec2(0.75, 0.25),
+        vec2(0.25, 0.75),
+        vec2(0.75, 0.75)
+    );
 
-    float R             = R_world * zoom;
-    float outlineOuter  = o.outlineSize * zoom;
-    float aa            = aa_world * zoom;
-    float outlineInner  = max(R - 0.01 * zoom, 0.0);
+    float coverageSum = 0.0;
 
-    float dist = length((vec2(s) + vec2(0.5)) - worldPos);
-    float sd   = dist - R;
+    for (int i = 0; i < 4; ++i) {
+        vec2 samplePos = vec2(fullP) + sampleOffsets[i];
+        float dist = length(seedPos - samplePos);
 
-    bool touches =
-        (dist <= outlineOuter + aa) &&
-        (sd   >= -outlineInner);
+        coverageSum += 1.0 - smoothstep(
+            outer - aa,
+            outer + aa,
+            dist
+        );
+    }
 
-    if (!touches)
-        discard;
-
-    float a     = ringSD(sd, outlineInner, outlineOuter, aa);
-    float alpha = clamp(a * 1.35, 0.0, 1.0) * o.outlineColor.a;
+    float alpha = coverageSum * 0.25 * o.outlineColor.a;
 
     if (alpha <= 1e-4)
         discard;

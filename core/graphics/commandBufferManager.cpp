@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <print>
 #include <stdexcept>
 #include <utility>
 #include <vulkan/vulkan_core.h>
@@ -241,7 +242,7 @@ void CommandBufferManager::cmdDispatchJFA(VkCommandBuffer& commandBuffer, const 
     vkCmdDispatch(commandBuffer, gx, gy, 1);
 }
 
-void CommandBufferManager::recordJFAPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame) {
+void CommandBufferManager::recordJFAPass(VkCommandBuffer& commandBuffer, const FrameContext& frameContext, uint32_t currentFrame, uint32_t maxOutlineSize) {
     auto& ping = frameContext.swapChainManager.viewJFAPingImages();
     auto& pong = frameContext.swapChainManager.viewJFAPongImages();
 
@@ -276,9 +277,10 @@ void CommandBufferManager::recordJFAPass(VkCommandBuffer& commandBuffer, const F
         );
     }
 
-    const uint32_t w = frameContext.swapChainManager.getExtent().width;
-    const uint32_t h = frameContext.swapChainManager.getExtent().height;
-    const uint32_t maxDim = std::max(w, h);
+    const uint32_t w = ping.extent.width;
+    const uint32_t h = ping.extent.height;
+    const uint32_t maxWin = std::max(w, h);
+    const uint32_t maxDim = std::min(maxDim, maxOutlineSize);
     const uint32_t steps = (maxDim > 1) ? static_cast<uint32_t>(std::ceil(std::log2(double(maxDim)))) : 1;
 
     bool writeToPing = true;
@@ -303,16 +305,72 @@ frameContext.pipelineManager.viewPipelines()[toIndex(PipelineType::JFA)]);
 
     vkCmdClearColorImage(commandBuffer, pong.image, VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
 
+        // INIT PASS: seedFull -> pingHalf
+    {
+        int jump = 0;
+        int readFromPing = 0; // con tu shader, esto escribe en ping
 
+        VkDescriptorSet ds = frameContext.pipelineManager.viewJFADescriptorSets()[currentFrame];
+
+        vkCmdBindDescriptorSets(
+            commandBuffer,
+            VK_PIPELINE_BIND_POINT_COMPUTE,
+            frameContext.pipelineManager.viewLayouts()[toIndex(PipelineType::JFA)],
+            0,
+            1,
+            &ds,
+            0,
+            nullptr
+        );
+
+        std::array<int, 2> pcs = {jump, readFromPing};
+
+        vkCmdPushConstants(
+            commandBuffer,
+            frameContext.pipelineManager.viewLayouts()[toIndex(PipelineType::JFA)],
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0,
+            2 * sizeof(int),
+            pcs.data()
+        );
+
+        constexpr uint32_t LOCAL = 16;
+        vkCmdDispatch(
+            commandBuffer,
+            (w + LOCAL - 1) / LOCAL,
+            (h + LOCAL - 1) / LOCAL,
+            1
+        );
+
+        VkImageMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = ping.image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier
+        );
+    }
     for (uint32_t s = 0; s < steps; s++) {
         int jump = 1 << (steps - 1 - s);
 
-        int readFromPing;
-        if (s == steps - 1) {
-            readFromPing = 1;
-        } else {
-            readFromPing = writeToPing ? 1 : 0;
-        }
+        int readFromPing = writeToPing ? 1 : 0;
             
         VkDescriptorSet ds = frameContext.pipelineManager.viewJFADescriptorSets()[currentFrame];
 
@@ -359,7 +417,7 @@ frameContext.pipelineManager.viewPipelines()[toIndex(PipelineType::JFA)]);
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
 
-        barrier.image = (s == steps - 1) ? pong.image : (writeToPing ? ping.image : pong.image);
+        barrier.image = (readFromPing == 1) ? pong.image : ping.image;
 
         vkCmdPipelineBarrier(
             commandBuffer,
@@ -429,7 +487,7 @@ void CommandBufferManager::recordCommandBuffer(uint32_t currentFrame, const Rend
 
     vkCmdEndRenderPass(commandBuffers[currentFrame]);
     
-    recordJFAPass(commandBuffers[currentFrame], frameContext, currentFrame);
+    recordJFAPass(commandBuffers[currentFrame], frameContext, currentFrame, renderContext.maxOutlineSize);
 
     cmdInitRenderPass(commandBuffers[currentFrame], frameContext, RenderPassType::Post);
         
