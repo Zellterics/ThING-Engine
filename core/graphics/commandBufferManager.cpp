@@ -3,7 +3,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <print>
 #include <stdexcept>
 #include <utility>
 #include <vulkan/vulkan_core.h>
@@ -280,7 +279,7 @@ void CommandBufferManager::recordJFAPass(VkCommandBuffer& commandBuffer, const F
     const uint32_t w = ping.extent.width;
     const uint32_t h = ping.extent.height;
     const uint32_t maxWin = std::max(w, h);
-    const uint32_t maxDim = std::min(maxDim, maxOutlineSize);
+    const uint32_t maxDim = std::min(maxWin, maxOutlineSize);
     const uint32_t steps = (maxDim > 1) ? static_cast<uint32_t>(std::ceil(std::log2(double(maxDim)))) : 1;
 
     bool writeToPing = true;
