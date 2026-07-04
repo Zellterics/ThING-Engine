@@ -1,5 +1,6 @@
 #include "jfaComp_spv.h"
 #include "ThING/types/enums.h"
+#include "zlog.h"
 #include <ThING/graphics/pipelineManager.h>
 
 void PipelineManager::createJFAPipeline() {
@@ -25,7 +26,8 @@ void PipelineManager::createJFAPipeline() {
 
     if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayouts[toIndex(PipelineType::JFA)]) 
         != VK_SUCCESS){
-        throw std::runtime_error("failed to create JFA pipeline layout");
+            zlog->err("In {} Failed To Create JFA Pipeline Layout", Zlog::location());
+            throw std::runtime_error("failed to create JFA pipeline layout");
     }
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -41,7 +43,8 @@ void PipelineManager::createJFAPipeline() {
             nullptr,
             &pipelines[toIndex(PipelineType::JFA)]
         ) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create JFA compute pipeline");
+            zlog->err("In {} Failed To Create JFA Compute Pipeline", Zlog::location());
+            throw std::runtime_error("failed to create JFA compute pipeline");
     }
 
     vkDestroyShaderModule(device, compShaderModule, nullptr);

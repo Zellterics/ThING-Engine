@@ -31,7 +31,7 @@ private:
     #endif
     WindowManager windowManager;
     BufferManager bufferManager;
-    PipelineManager pipelineManager;
+    PipelineManager pipelineManager{zlog};
     SwapChainManager swapChainManager;
     CommandBufferManager commandBufferManager;
 
@@ -87,7 +87,7 @@ private:
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
     
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-    void setupDebugMessenger();
+    bool setupDebugMessenger();
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
         VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
         ProtoThiApp* app = static_cast<ProtoThiApp*>(pUserData);

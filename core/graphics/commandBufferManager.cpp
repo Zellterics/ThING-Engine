@@ -14,8 +14,15 @@
 #include "ThING/types/renderData.h"
 #include "ThING/types/renderImage.h"
 #include "backends/imgui_impl_vulkan.h"
+#include "zlog.h"
 
-CommandBufferManager::CommandBufferManager() {
+CommandBufferManager::CommandBufferManager() 
+    : CommandBufferManager(disabledLogger){
+    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+}
+
+CommandBufferManager::CommandBufferManager(Zlog& zlog) 
+    : zlog(&zlog){
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 }
 
@@ -28,6 +35,7 @@ void CommandBufferManager::createCommandPool(VkPhysicalDevice& physicalDevice, V
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
     if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Graphics Command Pool", Zlog::location());
         throw std::runtime_error("failed to create graphics command pool!");
     }
 }
@@ -40,6 +48,7 @@ void CommandBufferManager::createCommandBuffers(VkDevice& device, VkSurfaceKHR& 
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
     if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Allocate Command Buffers", Zlog::location());
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
@@ -60,6 +69,7 @@ void CommandBufferManager::cmdSetBufferBeginInfo(VkCommandBuffer& commandBuffer)
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Begin Recording Command Buffer", Zlog::location());
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 }
@@ -159,6 +169,7 @@ void CommandBufferManager::cmdInitRenderPass(VkCommandBuffer& commandBuffer, con
 
 void CommandBufferManager::cmdEndConfiguration(VkCommandBuffer& commandBuffer){
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        zlog->err("In {} Failed To End Command Buffer", Zlog::location());
         throw std::runtime_error("failed to record command buffer!");
     }
 }

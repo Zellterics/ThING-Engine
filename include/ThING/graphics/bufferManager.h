@@ -1,4 +1,5 @@
 #pragma once
+#include "zlog.h"
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <ThING/consts.h>
@@ -9,6 +10,7 @@ class BufferManager{
 public:
     BufferManager() = default;
     BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue);
+    BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Zlog& zlog);
     void createBuffers();
 
     void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex);
@@ -55,4 +57,7 @@ private:
     Buffer quadIndexBuffer;
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> instanceBuffers;
     std::array<Buffer, MAX_FRAMES_IN_FLIGHT> indirectBuffers;
+
+    inline static Zlog disabledLogger{DisableLogger{}};
+    Zlog* zlog;
 };

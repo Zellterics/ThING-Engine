@@ -1,12 +1,21 @@
+#include "zlog.h"
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
 
 #include <set>
+#include <string>
 #include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 
 void ProtoThiApp::createInstance() {
     if (enableValidationLayers && !checkValidationLayerSupport()) {
+        #ifdef DEBUG
+        zlog.err("In {} Validation Layers Requested But Not Available. \n\t\t"
+            "Code not built as release. You need the vulkan-validation-layers package", Zlog::location());
+        #else
+            zlog.err("In {} Validation Layers Requested But Not Available. \n\t\t"
+                "This One REALLY Shouldn't happen... Send this to the code owner... I'll check it", Zlog::location());
+        #endif
         throw std::runtime_error("validation layers requested, but not available!");
     }
 
@@ -58,6 +67,7 @@ void ProtoThiApp::pickPhysicalDevice() {
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
     if (deviceCount == 0) {
+        zlog.err("In {} Failed To Find GPUs With Vulkan Support", Zlog::location());
         throw std::runtime_error("failed to find GPUs with Vulkan support!");
     }
 
@@ -68,6 +78,7 @@ void ProtoThiApp::pickPhysicalDevice() {
 
     for (const VkPhysicalDevice& device : devices) {
         int score = rateDeviceSuitable(device);
+        
         if (score > deviceScore) {
             physicalDevice = device;
             deviceScore = score;
@@ -75,8 +86,12 @@ void ProtoThiApp::pickPhysicalDevice() {
     }
 
     if (physicalDevice == VK_NULL_HANDLE || deviceScore == 0) {
+        zlog.err("In {} Failed To Find A Suitable GPU (Possibly No Drivers Installed)", Zlog::location());
         throw std::runtime_error("failed to find a suitable GPU!");
     }
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+    zlog.info("Picked: Physical Device: {}", properties.deviceName);
 }
 
 void ProtoThiApp::createLogicalDevice() {
@@ -111,6 +126,7 @@ void ProtoThiApp::createLogicalDevice() {
     createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+        zlog.err("In {} Failed To Create Logical Device", Zlog::location());
         throw std::runtime_error("failed to create logical device!");
     }
 
@@ -151,7 +167,7 @@ int ProtoThiApp::rateDeviceSuitable(VkPhysicalDevice device) {
     if(!deviceFeatures.geometryShader){
         return 0;
     }
-    
+    zlog.debug("Found: Physical Device: {}", deviceProperties.deviceName);
     return score;
 }
 

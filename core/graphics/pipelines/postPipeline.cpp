@@ -1,6 +1,7 @@
 #include "postVert_spv.h"
 #include "postFrag_spv.h"
 #include "ThING/types/enums.h"
+#include "zlog.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <vulkan/vulkan_core.h>
 
@@ -96,6 +97,7 @@ void PipelineManager::createPostGraphicsPipeline() {
             &pipelineLayouts[toIndex(PipelineType::Post)]
         ) != VK_SUCCESS)
     {
+        zlog->err("In {} Failed To Create Post Pipeline Layout", Zlog::location());
         throw std::runtime_error("failed to create post pipeline layout!");
     }
 
@@ -123,6 +125,7 @@ void PipelineManager::createPostGraphicsPipeline() {
             &pipelines[toIndex(PipelineType::Post)]
         ) != VK_SUCCESS)
     {
+        zlog->err("In {} Failed To Create Post Graphics Pipeline", Zlog::location());
         throw std::runtime_error("failed to create post graphics pipeline!");
     }
 

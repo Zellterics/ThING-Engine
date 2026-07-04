@@ -1,18 +1,24 @@
 #include "ThING/extras/vulkanSupport.h"
 #include "ThING/types/enums.h"
 #include "ThING/types/renderImage.h"
+#include "zlog.h"
 #include <ThING/graphics/swapChainManager.h>
 #include <algorithm>
 #include <cstddef>
 #include <span>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
 #include <limits>
 #include <ThING/consts.h>
 #include <cstdint>
 
-SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window, VkPresentModeKHR preferredPresentMode){
+SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window, VkPresentModeKHR preferredPresentMode)
+    : SwapChainManager(instance, window, disabledLogger, preferredPresentMode) {}
+
+SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window, Zlog& zlog, VkPresentModeKHR preferredPresentMode)
+    : zlog(&zlog){
     this->preferredPresentMode = preferredPresentMode;
     createSurface(instance, window);
 }
@@ -56,6 +62,7 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwin
     createInfo.clipped = VK_TRUE;
 
     if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create SwapChain", Zlog::location());
         throw std::runtime_error("failed to create swap chain!");
     }
 
@@ -102,6 +109,7 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
         VkSemaphoreCreateInfo si{}; si.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         for (size_t i=0; i < renderFinishedSemaphores.size(); i++) {
             if (vkCreateSemaphore(device, &si, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+                zlog->err("In {} Failed To Recreate Render Finished Semaphore", Zlog::location());
                 throw std::runtime_error("failed to recreate renderFinished semaphore!");
             }
         }
@@ -117,7 +125,7 @@ uint32_t SwapChainManager::findMemoryType(VkPhysicalDevice physicalDevice, uint3
             return i;
         }
     }
-
+    zlog->err("In {} Failed To Find Suitable Memory Type", Zlog::location());
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
@@ -138,7 +146,8 @@ void SwapChainManager::createImage(RenderImage& image, VkImageUsageFlags usage){
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     if (vkCreateImage(device, &imageInfo, nullptr, &image.image) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create ID image!");
+        zlog->err("In {} Failed To Create Image", Zlog::location());
+        throw std::runtime_error("failed to create image!");
     }
 }
 
@@ -152,7 +161,8 @@ void SwapChainManager::createImageMemory(RenderImage& image, VkPhysicalDevice ph
     allocInfo.memoryTypeIndex = findMemoryType(physicalDevice,memRequirements.memoryTypeBits,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &image.Memory) != VK_SUCCESS) {
-        throw std::runtime_error("failed to allocate ID image memory!");
+        zlog->err("In {} Failed To Allocate Image Memory", Zlog::location());
+        throw std::runtime_error("failed to allocate image memory!");
     }
 
     vkBindImageMemory(device, image.image, image.Memory, 0);
@@ -171,7 +181,8 @@ void SwapChainManager::createImageView(RenderImage& image){
     viewInfo.subresourceRange.layerCount = 1;
 
     if (vkCreateImageView(device, &viewInfo, nullptr, &image.view) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create ID image view!");
+        zlog->err("In {} Failed To Create Image View");
+        throw std::runtime_error("failed to create image view!");
     }
 }
 
@@ -231,7 +242,8 @@ void SwapChainManager::createDepthImageView(RenderImage& image){
     viewInfo.subresourceRange.layerCount = 1;
 
     if (vkCreateImageView(device, &viewInfo, nullptr, &image.view) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create ID image view!");
+        zlog->err("In {} Failed To Create Depth Image View", Zlog::location());
+        throw std::runtime_error("failed to create depth image view!");
     }
 }
 
@@ -253,6 +265,7 @@ void SwapChainManager::createBaseImageViews() {
         createInfo.subresourceRange.layerCount = 1;
 
         if (vkCreateImageView(device, &createInfo, nullptr, &images[i].view) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create Base Image View enumed: {}", Zlog::location(), i);
             throw std::runtime_error("failed to create image views!");
         }
     }
@@ -316,8 +329,10 @@ VkPresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<VkPre
 
 void SwapChainManager::createSurface(VkInstance& instance, GLFWwindow* window) {
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Window Surface", Zlog::location());
         throw std::runtime_error("failed to create window surface!");
     }
+    zlog->info("Created: Window Surface");
 }
 
 VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
@@ -366,6 +381,7 @@ void SwapChainManager::createBaseFramebuffers(const VkRenderPass& renderPass) {
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &baseFramebuffers[i]) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create Base FrameBuffer", Zlog::location());
             throw std::runtime_error("failed to create framebuffer!");
         }
     }
@@ -387,6 +403,7 @@ void SwapChainManager::createPostFramebuffers(const VkRenderPass& renderPass) {
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &postFramebuffers[i]) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create Post FrameBuffer", Zlog::location());
             throw std::runtime_error("failed to create framebuffer!");
         }
     }
@@ -407,6 +424,7 @@ void SwapChainManager::createImGuiFramebuffers(const VkRenderPass& renderPass) {
         framebufferInfo.layers = 1;
 
         if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &imGuiFramebuffers[i]) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create ImGui FrameBuffer", Zlog::location());
             throw std::runtime_error("failed to create imgui framebuffer!");
         }
     }
@@ -427,12 +445,14 @@ void SwapChainManager::createSyncObjects() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create Synchronization objects for a frame", Zlog::location());
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
     }
 
     for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
+            zlog->err("In {} Failed To Create renderFinished semaphore for image", Zlog::location());
             throw std::runtime_error("failed to create renderFinished semaphore for image!");
         }
     }

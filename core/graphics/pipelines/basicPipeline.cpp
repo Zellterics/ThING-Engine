@@ -2,6 +2,7 @@
 #include "basicFrag_spv.h"
 
 #include "ThING/types/enums.h"
+#include "zlog.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <span>
 #include <vulkan/vulkan_core.h>
@@ -133,6 +134,7 @@ void PipelineManager::createBaseGraphicsPipeline(){
     basicPipelineLayoutInfo.pSetLayouts = &descriptorSetLayouts[toIndex(PipelineType::Base)];
 
     if (vkCreatePipelineLayout(device, &basicPipelineLayoutInfo, nullptr, &pipelineLayouts[toIndex(PipelineType::Base)]) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Pipeline Layout", Zlog::location());
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -161,7 +163,8 @@ void PipelineManager::createBaseGraphicsPipeline(){
             nullptr, 
             &pipelines[toIndex(PipelineType::Base)]
         ) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
+            zlog->err("In {} Failed To Create Graphics Pipeline", Zlog::location());
+            throw std::runtime_error("failed to create graphics pipeline!");
     }
 
     vkDestroyShaderModule(device, basicFragShaderModule, nullptr);
@@ -211,6 +214,7 @@ void PipelineManager::createDescriptorSetLayout(PipelineType type) {
             nullptr,
             &descriptorSetLayouts[toIndex(type)]
         ) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout");
+            zlog->err("In {} Failed To Create Descriptor Set Layout", Zlog::location());
+            throw std::runtime_error("failed to create descriptor set layout");
     }
 }

@@ -3,6 +3,7 @@
 #include "ThING/graphics/swapChainManager.h"
 #include "ThING/types/buffer.h"
 #include "ThING/types/enums.h"
+#include "zlog.h"
 #include <ThING/graphics/pipelineManager.h>
 #include <cstddef>
 #include <cstdint>
@@ -17,7 +18,11 @@ void PipelineManager::init(VkDevice device, const VkFormat &format) {
     createIdSampler();
 }
 
-PipelineManager::PipelineManager(){
+PipelineManager::PipelineManager()
+    : PipelineManager(disabledLogger){}
+
+PipelineManager::PipelineManager(Zlog& zlog)
+    : zlog(&zlog){
     device = VK_NULL_HANDLE;
     descriptorPool = VK_NULL_HANDLE;
     idSampler = VK_NULL_HANDLE;
@@ -67,6 +72,7 @@ VkShaderModule PipelineManager::createShaderModule(std::span<const uint32_t> cod
 
     VkShaderModule shaderModule = VK_NULL_HANDLE;
     if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Shader Module", Zlog::location());
         throw std::runtime_error("failed to create shader module");
     }
     return shaderModule;
@@ -121,6 +127,7 @@ void PipelineManager::createDescriptorPool(){
     poolInfo.maxSets = MAX_SETS;
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Descriptor Pool", Zlog::location());
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
@@ -189,6 +196,7 @@ void PipelineManager::createJFADescriptorSets(SwapChainManager& swapChainManager
     alloc.pSetLayouts = layouts.data();
 
     if (vkAllocateDescriptorSets(device, &alloc, JFADescriptorSets.data()) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Allocate JFA Descriptor Sets", Zlog::location());
         throw std::runtime_error("failed to allocate JFA descriptor sets");
     }
 
@@ -219,6 +227,7 @@ void PipelineManager::createDescriptorSet(BufferManager& bufferManager, SwapChai
     allocInfo.pSetLayouts = layouts.data();
 
     if (vkAllocateDescriptorSets(device, &allocInfo, graphicsDescriptorSets[toIndex(type)].data()) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Allocate Descriptor Sets", Zlog::location());
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
@@ -310,6 +319,7 @@ void PipelineManager::createIdSampler() {
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
     if (vkCreateSampler(device, &samplerInfo, nullptr, &idSampler) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create ID Sampler", Zlog::location());
         throw std::runtime_error("failed to create ID sampler!");
     }
 }
@@ -322,9 +332,13 @@ void PipelineManager::createDescriptorSetLayouts(){
 
 void PipelineManager::createPipelines(){
     createDescriptorSetLayouts();
+    zlog->info("Created: [PipelineManager] Descriptor Set Layouts");
     createBaseGraphicsPipeline();
+    zlog->info("Created: [PipelineManager] Base Graphics Pipeline");
     createJFAPipeline();
+    zlog->info("Created: [PipelineManager] JFA Pipeline");
     createPostGraphicsPipeline();
+    zlog->info("Created: [PipelineManager] Post Graphics Pipeline");
 }
 
 void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat) {
@@ -419,6 +433,7 @@ void PipelineManager::createBaseRenderPass(const VkFormat& swapChainImageFormat)
     renderPassInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::Base)]) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Render Pass", Zlog::location());
         throw std::runtime_error("failed to create render pass!");
     }
 }
@@ -462,6 +477,7 @@ void PipelineManager::createPostRenderPass(const VkFormat& swapChainImageFormat)
     renderPassInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::Post)]) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Post Render Pass", Zlog::location());
         throw std::runtime_error("failed to create post render pass!");
     }
 }
@@ -494,6 +510,7 @@ void PipelineManager::createImGuiRenderPass(const VkFormat& swapChainImageFormat
     renderPassInfo.pSubpasses = &subpass;
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPasses[toIndex(RenderPassType::ImGui)]) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create ImGui Render Pass", Zlog::location());
         throw std::runtime_error("failed to create ImGui render pass!");
     }
 }

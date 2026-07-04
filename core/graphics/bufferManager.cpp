@@ -4,6 +4,7 @@
 #include "ThING/types/vertex.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/fwd.hpp"
+#include "zlog.h"
 #include <ThING/graphics/bufferManager.h>
 #include <cstddef>
 #include <cstring>
@@ -15,7 +16,10 @@
 #include <vulkan/vulkan_core.h>
 
 BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue) 
-: device(device), physicalDevice(physicalDevice), commandPool(commandPool), graphicsQueue(graphicsQueue) {
+    : BufferManager(device, physicalDevice, commandPool, graphicsQueue, disabledLogger) {}
+
+BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Zlog& zlog) 
+    : device(device), physicalDevice(physicalDevice), commandPool(commandPool), graphicsQueue(graphicsQueue), zlog(&zlog) {
     ubo = {};
     for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         instancedMapped[i] = nullptr;
@@ -25,8 +29,11 @@ BufferManager::BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, V
 
 void BufferManager::createBuffers(){
     createCustomBuffers();
+    zlog->info("Created: [BufferManager] Custom Buffers");
     createIndirectBuffers();
+    zlog->info("Created: [BufferManager] Indirect Buffers");
     createUniformBuffers();
+    zlog->info("Created: [BufferManager] Uniform Buffers");
 }
 
 void BufferManager::uploadBuffer(VkDeviceSize bufferSize, VkBuffer *buffer, void* bufferData){
@@ -56,6 +63,7 @@ void BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Create Buffer", Zlog::location());
         throw std::runtime_error("failed to create buffer!");
     }
 
@@ -68,6 +76,7 @@ void BufferManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        zlog->err("In {} Failed To Allocate Buffer Memory", Zlog::location());
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
@@ -184,7 +193,7 @@ uint32_t BufferManager::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlag
             return i;
         }
     }
-
+    zlog->err("In {} Failed To Find Suitable Memory Type", Zlog::location());
     throw std::runtime_error("failed to find suitable memory type!");
 }
 

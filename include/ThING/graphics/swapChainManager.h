@@ -1,5 +1,6 @@
 #pragma once
 #include "ThING/types/renderImage.h"
+#include "zlog.h"
 #include <span>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -11,6 +12,8 @@ class SwapChainManager{
 public:
     SwapChainManager() = default;
     SwapChainManager(VkInstance& instance, GLFWwindow* window, VkPresentModeKHR prefferedPresentMode = VK_PRESENT_MODE_MAILBOX_KHR);
+    SwapChainManager(VkInstance& instance, GLFWwindow* window, Zlog& zlog, VkPresentModeKHR prefferedPresentMode = VK_PRESENT_MODE_MAILBOX_KHR);
+
     void createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window);
     void recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses);
     void createSurface(VkInstance& instance, GLFWwindow* window);
@@ -89,4 +92,7 @@ private:
     std::vector<VkFence> imagesInFlight;
 
     VkPresentModeKHR preferredPresentMode;
+
+    inline static Zlog disabledLogger{DisableLogger{}};
+    Zlog* zlog;
 };

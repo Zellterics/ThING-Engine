@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ThING/types/renderImage.h"
+#include "zlog.h"
 #include <ThING/types/contexts.h>
 #include <cstdint>
 #include <sys/types.h>
@@ -9,6 +10,7 @@
 class CommandBufferManager{
 public:
     CommandBufferManager();
+    CommandBufferManager(Zlog& zlog);
     void createCommandPool(VkPhysicalDevice& physicalDevice, VkDevice& device, VkSurfaceKHR& surface);
     void createCommandBuffers(VkDevice& device, VkSurfaceKHR& surface);
     void recordCommandBuffer(uint32_t currentFrame, const RenderContext& renderContext, const FrameContext& frameContext);
@@ -42,4 +44,7 @@ private:
 
     std::vector<VkCommandBuffer> commandBuffers;
     VkCommandPool commandPool;
+
+    inline static Zlog disabledLogger{DisableLogger{}};
+    Zlog* zlog;
 };

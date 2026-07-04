@@ -2,6 +2,7 @@
 
 #include "ThING/graphics/bufferManager.h"
 #include "ThING/graphics/swapChainManager.h"
+#include "zlog.h"
 #include <filesystem>
 #include <fstream>
 #include <ThING/extras/handMade.h>
@@ -11,6 +12,7 @@
 class PipelineManager{
 public:
     PipelineManager();
+    PipelineManager(Zlog& zlog);
     ~PipelineManager();
     void init(VkDevice device, const VkFormat &format);
 
@@ -118,4 +120,7 @@ private:
 
         return buffer;
     }
+
+    inline static Zlog disabledLogger{DisableLogger{}};
+    Zlog* zlog;
 };

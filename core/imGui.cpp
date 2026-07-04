@@ -8,6 +8,7 @@
 #include "ThING/types/enums.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+#include "zlog.h"
 
 void ProtoThiApp::initImGui() {
     IMGUI_CHECKVERSION();
@@ -40,6 +41,7 @@ void ProtoThiApp::initImGui() {
     pool_info.pPoolSizes = pool_sizes;
 
     if (vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiDescriptorPool) != VK_SUCCESS) {
+        zlog.err("In {} Failed To Create ImGui Descriptor Pool", Zlog::location());
         throw std::runtime_error("failed to create ImGui descriptor pool!");
     }
 
@@ -58,6 +60,7 @@ void ProtoThiApp::initImGui() {
     init_info.PipelineInfoMain.RenderPass = pipelineManager.viewRenderPasses()[toIndex(RenderPassType::ImGui)];
 
     if (!ImGui_ImplVulkan_Init(&init_info)) {
+        zlog.err("In {} Failed To Initialize ImGui Vulkan Backend", Zlog::location());
         throw std::runtime_error("failed to init ImGui Vulkan backend!");
     }
 

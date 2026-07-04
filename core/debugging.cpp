@@ -1,3 +1,4 @@
+#include "zlog.h"
 #include <ThING/core.h>
 #include <ThING/extras/vulkanSupport.h>
 #include <cstring>
@@ -12,15 +13,17 @@ void ProtoThiApp::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateIn
     createInfo.pUserData = this;
 }
 
-void ProtoThiApp::setupDebugMessenger() {
-    if (!enableValidationLayers) return;
+bool ProtoThiApp::setupDebugMessenger() {
+    if (!enableValidationLayers) return false;
 
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     populateDebugMessengerCreateInfo(createInfo);
 
     if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+        zlog.err("In {} Failed To Set Up Debug Messenger", Zlog::location());
         throw std::runtime_error("failed to set up debug messenger!");
     }
+    return true;
 }
 
 bool ProtoThiApp::checkValidationLayerSupport() {

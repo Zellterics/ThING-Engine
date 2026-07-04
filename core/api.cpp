@@ -368,6 +368,7 @@ LineData& ThING::API::getLine(const Entity e){
 }
 
 Entity ThING::API::addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color){
+    // If Same sides regular pol added, use instancing to save resources
     if(sides < 3){
         return INVALID_ENTITY;
     }

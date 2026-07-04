@@ -15,6 +15,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "glm/fwd.hpp"
+#include "zlog.h"
 
 ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
     zoom = 1;
@@ -32,26 +33,46 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
 
 void ProtoThiApp::initVulkan(VkPresentModeKHR prefferedPresentMode) {
     createInstance();
-    zlog.info("Instance Created");
-    setupDebugMessenger();
-    swapChainManager = SwapChainManager{instance, windowManager.getWindow(), prefferedPresentMode};
+    zlog.info("Created: Instance");
+    if(setupDebugMessenger()){
+        zlog.info("Created: Debug Utils");
+    }
+    swapChainManager = SwapChainManager{instance, windowManager.getWindow(), zlog, prefferedPresentMode};
+    zlog.info("Created: SwapChainManager");
     pickPhysicalDevice();
+    zlog.info("Picked: Physical Device");
     createLogicalDevice();
+    zlog.info("Created: Logical Device");
     commandBufferManager.createCommandPool(physicalDevice, device, swapChainManager.getSurface());
+    zlog.info("Created: [CommandBuffer] Command Pool");
     swapChainManager.setDevice(device);
+    zlog.info("Set: [SwapChainManager] Device");
     swapChainManager.createSwapChain(physicalDevice, windowManager.getWindow());
+    zlog.info("Created: [SwapChainManager] SwapChain with Extent = (w:{}, h:{})", swapChainManager.getExtent().width, swapChainManager.getExtent().height);
     swapChainManager.createDepthAttachments(physicalDevice);
+    zlog.info("Created: [SwapChainManager] Depth Attachments");
     swapChainManager.createIdAttachments(physicalDevice);
+    zlog.info("Created: [SwapChainManager] Id Attachments");
     swapChainManager.createSeedAttachments(physicalDevice);
+    zlog.info("Created: [SwapChainManager] Seed Attachments");
     pipelineManager.init(device, swapChainManager.viewImages()[0].format);
+    zlog.info("Initialized: PipelineManager");
     swapChainManager.createFrameBuffers(pipelineManager.viewRenderPasses());
+    zlog.info("Created: [SwapChainManager] Frame Buffers");
     swapChainManager.createJFAAttachments(physicalDevice);
+    zlog.info("Created: [SwapChainManager] JFA Attachments");
     pipelineManager.createPipelines();
-    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.viewCommandPool(), graphicsQueue};
+    zlog.info("Created: [PipelineManager] Pipelines");
+    bufferManager = BufferManager{device, physicalDevice, commandBufferManager.viewCommandPool(), graphicsQueue, zlog};
+    zlog.info("Initialized: BufferManager");
     bufferManager.createBuffers();
+    zlog.info("Created: [BufferManager] Buffers");
     pipelineManager.createDescriptors(bufferManager, swapChainManager);
+    zlog.info("Created: [PipelineManager] Descriptors");
     commandBufferManager.createCommandBuffers(device, swapChainManager.getSurface());
+    zlog.info("Created: [CommandBufferManager] Command Buffers");
     swapChainManager.createSyncObjects();
+    zlog.info("Created: [SwapChainManager] Syncronization Objects");
 }
 
 void ProtoThiApp::cleanup() {
@@ -158,6 +179,7 @@ void ProtoThiApp::drawFrame() {
         swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
         return;
     } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        zlog.err("In {} Failed To Acquire Swap Chain Image", Zlog::location());
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
@@ -188,6 +210,7 @@ void ProtoThiApp::drawFrame() {
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, swapChainManager.getInFlightFences()[currentFrame]) != VK_SUCCESS) {
+        zlog.err("In {} Failed To Submit Draw Command Buffer", Zlog::location());
         throw std::runtime_error("failed to submit draw command buffer!");
     }
 
@@ -210,6 +233,7 @@ void ProtoThiApp::drawFrame() {
         swapChainManager.recreateSwapChain(physicalDevice, windowManager.getWindow(), pipelineManager.viewRenderPasses());
         pipelineManager.createDescriptors(bufferManager, swapChainManager);
     } else if (result != VK_SUCCESS) {
+        zlog.err("In {} Failed To Present SwapChain Image", Zlog::location());
         throw std::runtime_error("failed to present swap chain image!");
     }
 
