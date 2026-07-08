@@ -4,6 +4,7 @@
 #include "zlog.h"
 #include <ThING/graphics/swapChainManager.h>
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <span>
 #include <stdexcept>
@@ -21,6 +22,7 @@ SwapChainManager::SwapChainManager(VkInstance& instance, GLFWwindow* window, Zlo
     : zlog(&zlog){
     this->preferredPresentMode = preferredPresentMode;
     createSurface(instance, window);
+    this->zlog->info("Created: [SwapChainManager] Window Surface");
 }
 
 void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window) {
@@ -80,8 +82,10 @@ void SwapChainManager::createSwapChain(VkPhysicalDevice& physicalDevice, GLFWwin
         images[i].extent = extent;
     }
 
+    zlog->info("Set: [SwapChainManager] Base Images");
     swapChainExtent = extent;
     createBaseImageViews();
+    zlog->info("Created: [SwapChainManager] Base Image Views");
 }
 
 void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWwindow* window, std::span<const VkRenderPass> renderPasses) {
@@ -91,8 +95,10 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
         glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
     }
-
+    zlog->debugTimed(std::chrono::milliseconds(10000), "Recreating SwapChain... (Possible Window Resize)");
     vkDeviceWaitIdle(device);
+    Zlog* saveLogger = zlog;
+    zlog = &disabledLogger;
     cleanUp();
 
     createSwapChain(physicalDevice, window);
@@ -101,7 +107,7 @@ void SwapChainManager::recreateSwapChain(VkPhysicalDevice& physicalDevice, GLFWw
     createSeedAttachments(physicalDevice);
     createFrameBuffers(renderPasses);
     createJFAAttachments(physicalDevice);
-
+    zlog = saveLogger;
     if (renderFinishedSemaphores.size() != images.size()) {
         for (auto s : renderFinishedSemaphores) vkDestroySemaphore(device, s, nullptr);
         renderFinishedSemaphores.clear();
@@ -275,37 +281,48 @@ void SwapChainManager::cleanUp(){
     for (auto framebuffer : baseFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
+    zlog->info("Destroyed: [SwapChainManager] Base Frame Buffers");
     for (auto framebuffer : imGuiFramebuffers) {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
+    zlog->info("Destroyed: [SwapChainManager] ImGui Frame Buffers");
     for (auto framebuffer : postFramebuffers){
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
+    zlog->info("Destroyed: [SwapChainManager] Post Frame Buffers");
     for (auto image : images) {
         vkDestroyImageView(device, image.view, nullptr);
     }
+    zlog->info("Destroyed: [SwapChainManager] Base Images");
     for (auto image : depthImages) {
         vkDestroyImageView(device, image.view, nullptr);
         vkDestroyImage(device, image.image, nullptr);
         vkFreeMemory(device, image.Memory, nullptr);
     }
+    zlog->info("Destroyed: [SwapChainManager] Depth Images");
+
     vkDestroyImageView(device, idImages.view, nullptr);
     vkDestroyImage(device, idImages.image, nullptr);
     vkFreeMemory(device, idImages.Memory, nullptr);
+    zlog->info("Destroyed: [SwapChainManager] Id Image");
 
     vkDestroyImageView(device, seedImages.view, nullptr);
     vkDestroyImage(device, seedImages.image, nullptr);
     vkFreeMemory(device, seedImages.Memory, nullptr);
+    zlog->info("Destroyed: [SwapChainManager] Seed Image");
 
     vkDestroyImageView(device, jfaPing.view, nullptr);
     vkDestroyImage(device, jfaPing.image, nullptr);
     vkFreeMemory(device, jfaPing.Memory, nullptr);
+    zlog->info("Destroyed: [SwapChainManager] JFA Ping Image");
 
     vkDestroyImageView(device, jfaPong.view, nullptr);
     vkDestroyImage(device, jfaPong.image, nullptr);
     vkFreeMemory(device, jfaPong.Memory, nullptr);
+    zlog->info("Destroyed: [SwapChainManager] JFA Pong Image");
 
     vkDestroySwapchainKHR(device, swapChain, nullptr);
+    zlog->info("Destroyed: [SwapChainManager] SwapChain");
 }
 
 VkSurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -332,7 +349,6 @@ void SwapChainManager::createSurface(VkInstance& instance, GLFWwindow* window) {
         zlog->err("In {} Failed To Create Window Surface", Zlog::location());
         throw std::runtime_error("failed to create window surface!");
     }
-    zlog->info("Created: Window Surface");
 }
 
 VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
@@ -356,8 +372,11 @@ VkExtent2D SwapChainManager::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& ca
 
 void SwapChainManager::createFrameBuffers(std::span<const VkRenderPass> renderPasses){
     createBaseFramebuffers(renderPasses[toIndex(RenderPassType::Base)]);
+    zlog->info("Created: [SwapChainManager] Base Frame Buffers");
     createImGuiFramebuffers(renderPasses[toIndex(RenderPassType::ImGui)]);
+    zlog->info("Created: [SwapChainManager] ImGui Frame Buffers");
     createPostFramebuffers(renderPasses[toIndex(RenderPassType::Post)]);
+    zlog->info("Created: [SwapChainManager] Post Frame Buffers");
 }
 
 void SwapChainManager::createBaseFramebuffers(const VkRenderPass& renderPass) {
@@ -449,6 +468,7 @@ void SwapChainManager::createSyncObjects() {
             throw std::runtime_error("failed to create synchronization objects for a frame!");
         }
     }
+    zlog->info("Created: [SwapChainManager] Image Available Semaphores & Fences");
 
     for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
@@ -456,4 +476,5 @@ void SwapChainManager::createSyncObjects() {
             throw std::runtime_error("failed to create renderFinished semaphore for image!");
         }
     }
+    zlog->info("Created: [SwapChainManager] Render Finished Semaphores");
 }

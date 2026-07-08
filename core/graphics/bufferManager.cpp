@@ -390,7 +390,9 @@ void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<ui
 
 void BufferManager::cleanUp(){
     quadVertexBuffer.destroy();
+    zlog->info("Destroyed: [BufferManager] Quad Vertex Buffer");
     quadIndexBuffer.destroy();
+    zlog->info("Destroyed: [BufferManager] Quad Index Buffer");
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vertexBuffers[i].destroy();
@@ -400,6 +402,7 @@ void BufferManager::cleanUp(){
         indirectBuffers[i].destroy();
     }
     ssbo.destroy();
+    zlog->info("Destroyed: [BufferManager] All Remaining Buffers");
 
     for (auto& dyn : stagingBuffers) {
         if (dyn.isMapped) {
@@ -409,5 +412,7 @@ void BufferManager::cleanUp(){
         }
         dyn.stagingBuffer.destroy();
     }
+    zlog->info("UnMapped: [BufferManager] Staging Buffers Memory");
     stagingBuffers.clear();
+    zlog->info("Cleared: [BufferManager] Staging Buffers Vector");
 }

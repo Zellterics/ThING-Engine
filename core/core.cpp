@@ -32,6 +32,7 @@ ProtoThiApp::ProtoThiApp() : windowManager(WIDTH, HEIGHT, TITLE){
 }
 
 void ProtoThiApp::initVulkan(VkPresentModeKHR prefferedPresentMode) {
+    zlog.info("========================START CORE INIT========================");
     createInstance();
     zlog.info("Created: Instance");
     if(setupDebugMessenger()){
@@ -73,43 +74,55 @@ void ProtoThiApp::initVulkan(VkPresentModeKHR prefferedPresentMode) {
     zlog.info("Created: [CommandBufferManager] Command Buffers");
     swapChainManager.createSyncObjects();
     zlog.info("Created: [SwapChainManager] Syncronization Objects");
+    zlog.info("======================== END CORE INIT ========================");
 }
 
 void ProtoThiApp::cleanup() {
+    zlog.info("=======================START CORE CLEANUP=======================");
     vkDeviceWaitIdle(device);
+    zlog.info("Stopped: Device");
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+    zlog.info("Cleaned Up: ImGui Implementation");
 
     swapChainManager.cleanUp();
+    zlog.info("Cleaned Up: SwapChainManager");
     pipelineManager.cleanUp();
+    zlog.info("Cleaned Up: PipelineManager");
     vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
-
+    zlog.info("Destroyed: ImGui Descriptor Pool");
     commandBufferManager.cleanUpCommandBuffers(device);
-
+    zlog.info("Cleaned Up: [CommandBufferManager] Command Buffers");
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         
         vkDestroySemaphore(device, swapChainManager.getImageAvailableSemaphores()[i], nullptr);
         vkDestroyFence(device, swapChainManager.getInFlightFences()[i], nullptr);
     }
+    zlog.info("Destroyed: [SwapChainManager] Image Semaphores & Fences");
     for(auto& semaphore : swapChainManager.getRenderFinishedSemaphores()){
         vkDestroySemaphore(device, semaphore, nullptr);
     }
+    zlog.info("Destroyed: [SwapChainManager] Render Semaphores");
 
     bufferManager.cleanUp();
-
+    zlog.info("Cleaned Up: BufferManager");
     commandBufferManager.cleanUpCommandPool(device);
-
+    zlog.info("Destroyed: [CommandBufferManager] Command Pool");
     vkDestroyDevice(device, nullptr);
-
+    zlog.info("Destroyed: device");
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        zlog.info("Destroyed: Debug Utils");
     }
     
     vkDestroySurfaceKHR(instance, swapChainManager.getSurface(), nullptr);
+    zlog.info("Destroyed: [SwapChainManager] Surface");
     vkDestroyInstance(instance, nullptr);
-
+    zlog.info("Destroyed: Instance");
     glfwTerminate();
+    zlog.info("Terminated: GLFW");
+    zlog.info("======================= END CORE CLEANUP =======================");
 }
 
 void ProtoThiApp::recordWorldData(std::span<InstanceData> circleInstances, std::span<InstanceData> polygonInstances, 

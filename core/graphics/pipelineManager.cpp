@@ -13,9 +13,13 @@
 void PipelineManager::init(VkDevice device, const VkFormat &format) {
     this->device = device;
     createBaseRenderPass(format);
+    zlog->info("Created: [PipelineManager] Base Render Pass");
     createPostRenderPass(format);
+    zlog->info("Created: [PipelineManager] Post Render Pass");
     createImGuiRenderPass(format);
+    zlog->info("Created: [PipelineManager] ImGui Render Pass");
     createIdSampler();
+    zlog->info("Created: [PipelineManager] Id Sampler");
 }
 
 PipelineManager::PipelineManager()
@@ -29,11 +33,17 @@ PipelineManager::PipelineManager(Zlog& zlog)
 }
 
 PipelineManager::~PipelineManager(){
+    if(device == VK_NULL_HANDLE){
+        // Already Cleaned, Usual Expected Behaviour
+        return;
+    }
+    zlog->warn("In {} PipelineManager Destructor Called Without Calling PipelineManager::cleanup First", Zlog::location());
     cleanUp();
 }
 
 void PipelineManager::cleanUp(){
     if(device == VK_NULL_HANDLE){
+        zlog->warn("In {} PipelineManager CleanUp Failed, Device = VK_NULL_HANDLE", Zlog::location());
         return;
     }
     for (size_t i = 0; i < toIndex(PipelineType::Count); i++) {
@@ -47,21 +57,27 @@ void PipelineManager::cleanUp(){
             pipelineLayouts[i] = VK_NULL_HANDLE;
         }
     }
+    zlog->info("Destroyed: [PipelineManager] Pipelines & Pipeline Layouts");
     if (descriptorPool != VK_NULL_HANDLE) {
         vkDestroyDescriptorPool(device, descriptorPool, nullptr);
         descriptorPool = VK_NULL_HANDLE;
     }
+    zlog->info("Destroyed: [PipelineManager] Descriptor Pool");
     if (idSampler != VK_NULL_HANDLE) {
         vkDestroySampler(device, idSampler, nullptr);
+        zlog->info("Destroyed: [PipelineManager] Id Sampler");
         idSampler = VK_NULL_HANDLE;
     }
     for (size_t i = 0; i < toIndex(PipelineType::Count); i++) {
         vkDestroyDescriptorSetLayout(device, descriptorSetLayouts[i], nullptr);
     }
+    zlog->info("Destroyed: [PipelineManager] Descriptor Sets");
     for(size_t i = 0; i < toIndex(RenderPassType::Count); i++){
         vkDestroyRenderPass(device, renderPasses[i], nullptr);
     }
+    zlog->info("Destroyed: [PipelineManager] Render Passes");
     device = VK_NULL_HANDLE;
+    zlog->info("Cleaned Up: [PipelineManager] Device");
 }
 
 VkShaderModule PipelineManager::createShaderModule(std::span<const uint32_t> code) {
