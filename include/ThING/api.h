@@ -1,19 +1,20 @@
 #pragma once
-#include "ThING/types/enums.h"
+#include <ThING/types/enums.h>
 #include "glm/fwd.hpp"
 #include <ThING/core.h>
 #include <cstddef>
 #include <cstdint>
 #include <miniaudio.h>
 #include <ThING/extras/fpsCounter.h>
+#include <unordered_map>
+#include <vector>
+#include <ThING/types/apiTypes.h>
 
 enum ApiFlags : uint8_t{
     ApiFlags_None = 0,
     ApiFlags_UpdateCallbackFirst = 1 << 0,
     ApiFlags_UseFullFPS = 1 << 1
 };
-
-struct Entity;
 
 namespace ThING{
     class API{
@@ -30,6 +31,8 @@ namespace ThING{
         // Get Info
         uint32_t getInstanceCount(InstanceType type);
         void getWindowSize(int* x, int* y);
+        float getZoom(){ return app.zoom; };
+        glm::vec2 getOffset(){ return app.offset; };
         
         // Direct Data Manipulation
         std::span<InstanceData> getInstanceVector(InstanceType type);
@@ -63,13 +66,15 @@ namespace ThING{
         void updateOutlines() {dirtyFlags.ssbo = true;}
         // void updateApiFlags(uint8_t flags) {} Add if needed
 
+        void cleanRenderData();
+
         void EXIT(){EXIT_ = true;}
     private:
         // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed
         // Instance Creation Helper
         Entity addCircle(InstanceData&& instance);
         Entity addLine(LineData&& line);
-        // void cleanRenderData(); add if a lot of death objects exists, right now I don't plan to use it
+        
 
         void mainLoop();
 
@@ -81,6 +86,8 @@ namespace ThING{
         std::vector<Entity> circleFreeList;
         std::vector<Entity> lineFreeList;
         std::vector<Entity> polygonFreeList;
+
+        std::unordered_map<size_t, uint32_t> regularPolMeshPosition; // (key = polygon sides)
 
 
         std::function<void(ThING::API&, FPSCounter&)> updateCallback;

@@ -459,9 +459,36 @@ void ThING::API::clearInstanceVector(InstanceType type){
             polygonInstances.clear();
             polygonMeshes.clear();
             polygonFreeList.clear();
+            app.vertices.clear();
+            app.indices.clear();
+            dirtyFlags.meshes = true;
             break;
         case InstanceType::Count:
             std::unreachable();
             break;
     }
+}
+
+void ThING::API::cleanRenderData(){
+    std::vector<MeshData> aliveMeshes;
+    std::vector<Vertex> newVertices;
+    std::vector<uint16_t> newIndices;
+    
+    std::vector<InstanceData> alivePolygons;
+
+    for(const MeshData& mesh : polygonMeshes){
+        if(polygonInstances[mesh.instanceIndex].alive){
+            aliveMeshes.emplace_back(newVertices.size(), mesh.vertexCount, newIndices.size(), mesh.indexCount, alivePolygons.size());
+            alivePolygons.push_back(polygonInstances[mesh.instanceIndex]);
+            for(uint32_t i = 0; i < mesh.indexCount; i++){
+                newIndices.push_back(app.indices[mesh.indexOffset + i] - mesh.vertexOffset + newVertices.size());
+            }
+            newVertices.insert(newVertices.end(), app.vertices.begin() + mesh.vertexOffset, app.vertices.begin() + mesh.vertexOffset + mesh.vertexCount);
+        }
+    }
+    this->polygonMeshes = std::move(aliveMeshes);
+    app.vertices = std::move(newVertices);
+    app.indices = std::move(newIndices);
+    this->polygonInstances = std::move(alivePolygons);
+    this->polygonFreeList.clear();
 }
