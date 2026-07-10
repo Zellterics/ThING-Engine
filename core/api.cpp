@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <span>
 #include <sys/stat.h>
@@ -61,6 +62,14 @@ void ThING::API::run(){
     app.cleanup();
 }
 
+bool ThING::API::setStartCallback(std::function<void(ThING::API&, FPSCounter&)> start){
+    this->startCallback = start;
+    if(startCallback == nullptr){
+        return false;
+    }
+    return true;
+}
+
 bool ThING::API::setUpdateCallback(std::function<void(ThING::API&, FPSCounter&)> update){
     this->updateCallback = update;
     if(updateCallback == nullptr)
@@ -78,6 +87,7 @@ bool ThING::API::setUICallback(std::function<void(ThING::API&, FPSCounter&)> UI)
 //PRIVATE
 void ThING::API::mainLoop() {
     FPSCounter fps;
+    bool _first = true;
     while (!glfwWindowShouldClose(app.windowManager.getWindow())) {
         fps.beginFrame();
 
@@ -87,7 +97,10 @@ void ThING::API::mainLoop() {
 
         dirtyFlags.ssbo = false;
         dirtyFlags.meshes = false;
-
+        if(_first == true){
+            _first = false;
+            if(startCallback) startCallback(*this, fps);
+        }
         // Callbacks
         if(apiFlags & ApiFlags_UpdateCallbackFirst){
             if(updateCallback) updateCallback(*this, fps);
@@ -212,7 +225,7 @@ void ThING::API::setBackgroundColor(glm::vec4 color){
     app.clearColor[0].color.float32[3] = color.w;
 }
 
-Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint16_t> ind){
+Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint32_t> ind){
     Entity e;
 
     InstanceData tempInstance;
@@ -248,7 +261,7 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
     return e;
 }
 
-Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind){
+Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint32_t>&& ind){
     Entity e;
 
     InstanceData tempInstance;
@@ -274,9 +287,8 @@ Entity ThING::API::addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, s
         to_u32(ind.size()),
         e.index
     };
-    if(polygonMeshes.size() > e.index){
-        polygonMeshes[e.index] = std::move(tempMesh);
-    } else {
+    // MAYBE MAKE POLYGON MESHES FREE LIST
+    {
         polygonMeshes.push_back(std::move(tempMesh));
     }
     app.vertices.insert(app.vertices.end(), std::make_move_iterator(ver.begin()), std::make_move_iterator(ver.end()));
@@ -378,7 +390,7 @@ Entity ThING::API::addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, g
         glm::vec2 vtx = {sin((6.28 * i / (float)sides)), cos((6.28 * i / (float)sides))};
         vertices.push_back({vtx, {glm::normalize(vtx)}});
     }
-    std::vector<uint16_t> indices;
+    std::vector<uint32_t> indices;
     indices.reserve((sides - 2) * 3);
     for(int i = 0; i < sides - 2;){
         indices.push_back(0);
@@ -472,23 +484,16 @@ void ThING::API::clearInstanceVector(InstanceType type){
 void ThING::API::cleanRenderData(){
     std::vector<MeshData> aliveMeshes;
     std::vector<Vertex> newVertices;
-    std::vector<uint16_t> newIndices;
-    
-    std::vector<InstanceData> alivePolygons;
+    std::vector<uint32_t> newIndices;
 
     for(const MeshData& mesh : polygonMeshes){
         if(polygonInstances[mesh.instanceIndex].alive){
-            aliveMeshes.emplace_back(newVertices.size(), mesh.vertexCount, newIndices.size(), mesh.indexCount, alivePolygons.size());
-            alivePolygons.push_back(polygonInstances[mesh.instanceIndex]);
-            for(uint32_t i = 0; i < mesh.indexCount; i++){
-                newIndices.push_back(app.indices[mesh.indexOffset + i] - mesh.vertexOffset + newVertices.size());
-            }
+            aliveMeshes.emplace_back(newVertices.size(), mesh.vertexCount, newIndices.size(), mesh.indexCount, mesh.instanceIndex);
+            newIndices.insert(newIndices.end(), app.indices.begin() + mesh.indexOffset, app.indices.begin() + mesh.indexOffset + mesh.indexCount );
             newVertices.insert(newVertices.end(), app.vertices.begin() + mesh.vertexOffset, app.vertices.begin() + mesh.vertexOffset + mesh.vertexCount);
         }
     }
     this->polygonMeshes = std::move(aliveMeshes);
     app.vertices = std::move(newVertices);
     app.indices = std::move(newIndices);
-    this->polygonInstances = std::move(alivePolygons);
-    this->polygonFreeList.clear();
 }

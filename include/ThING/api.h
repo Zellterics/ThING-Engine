@@ -4,6 +4,7 @@
 #include <ThING/core.h>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <miniaudio.h>
 #include <ThING/extras/fpsCounter.h>
 #include <unordered_map>
@@ -24,6 +25,7 @@ namespace ThING{
         ~API();
 
         // Setup
+        bool setStartCallback(std::function<void(ThING::API&, FPSCounter&)>);
         bool setUpdateCallback(std::function<void(ThING::API&, FPSCounter&)>);
         bool setUICallback(std::function<void(ThING::API&, FPSCounter&)>);
         void run();
@@ -45,8 +47,8 @@ namespace ThING{
 
         // Add Instances
         Entity addCircle(glm::vec2 pos, float size, glm::vec4 color);
-        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint16_t> ind);
-        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind);
+        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::span<Vertex> ver, std::span<uint32_t> ind);
+        Entity addPolygon(glm::vec2 pos, glm::vec4 color, glm::vec2 scale, std::vector<Vertex>&& ver, std::vector<uint32_t>&& ind);
         Entity addLine(glm::vec2 point1, glm::vec2 point2, float width);
         Entity addRegularPol(size_t sides, glm::vec2 pos, glm::vec2 scale, glm::vec4 color);
 
@@ -70,7 +72,7 @@ namespace ThING{
 
         void EXIT(){EXIT_ = true;}
     private:
-        // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint16_t>&& ind); add if needed
+        // Entity addPolygon(InstanceData&& polygon, std::vector<Vertex>&& ver, std::vector<uint32_t>&& ind); add if needed
         // Instance Creation Helper
         Entity addCircle(InstanceData&& instance);
         Entity addLine(LineData&& line);
@@ -89,7 +91,7 @@ namespace ThING{
 
         std::unordered_map<size_t, uint32_t> regularPolMeshPosition; // (key = polygon sides)
 
-
+        std::function<void(ThING::API&, FPSCounter&)> startCallback;
         std::function<void(ThING::API&, FPSCounter&)> updateCallback;
         std::function<void(ThING::API&, FPSCounter&)> uiCallback;
 

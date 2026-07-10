@@ -49,7 +49,7 @@ private:
     VkDescriptorPool imguiDescriptorPool;
 
     std::vector<Vertex> vertices;
-    std::vector<uint16_t> indices;
+    std::vector<uint32_t> indices;
 
     WorldData worldData;
     uint32_t indirectCommandCount;

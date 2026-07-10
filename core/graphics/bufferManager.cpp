@@ -341,9 +341,9 @@ void BufferManager::createCustomBuffers(){
     createBuffer(sizeof(Vertex) * QUAD_VERTICES.size(), vertexFlags, memoryFlags, quadVertexBuffer.buffer, quadVertexBuffer.memory);
 
     quadIndexBuffer.device = device;
-    createBuffer(sizeof(uint16_t) * QUAD_INDICES.size(), indexFlags, memoryFlags, quadIndexBuffer.buffer, quadIndexBuffer.memory);
+    createBuffer(sizeof(uint32_t) * QUAD_INDICES.size(), indexFlags, memoryFlags, quadIndexBuffer.buffer, quadIndexBuffer.memory);
     uploadBuffer(sizeof(Vertex) * QUAD_VERTICES.size(), &quadVertexBuffer.buffer, (void*)QUAD_VERTICES.data());
-    uploadBuffer(sizeof(uint16_t) * QUAD_INDICES.size(), &quadIndexBuffer.buffer, (void*)QUAD_INDICES.data());
+    uploadBuffer(sizeof(uint32_t) * QUAD_INDICES.size(), &quadIndexBuffer.buffer, (void*)QUAD_INDICES.data());
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         instanceBuffers[i].device = device;
@@ -356,14 +356,14 @@ void BufferManager::createCustomBuffers(){
 }
 
 
-void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex){
+void BufferManager::updateCustomBuffers(std::span<Vertex> vertices, std::span<uint32_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex){
     static std::array<bool, MAX_FRAMES_IN_FLIGHT> pendingMeshes = {};
     if (worldData.dirtyFlags.meshes) {
         for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) pendingMeshes[i] = true;
     }
 
     VkDeviceSize vertexSize = vertices.size() * sizeof(Vertex);
-    VkDeviceSize indexSize = indices.size() * sizeof(uint16_t);
+    VkDeviceSize indexSize = indices.size() * sizeof(uint32_t);
     VkDeviceSize instanceSize = (worldData.polygonOffset + worldData.polygonInstances.size()) * sizeof(InstanceData);
     VkDeviceSize ssboSize = worldData.ssboData.size() * sizeof(SSBO);
 

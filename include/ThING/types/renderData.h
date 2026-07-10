@@ -138,7 +138,7 @@ inline std::array<Vertex, 4> QUAD_VERTICES = {{
     {{-1.f, 1.f}, {-1.0f, 1.0f}}
 }};
 
-inline std::array<glm::uint16_t, 6> QUAD_INDICES = {0,1,2,2,3,0};
+inline std::array<glm::uint32_t, 6> QUAD_INDICES = {0,1,2,2,3,0};
 
 struct DrawBatch {
     BufferType vertexBuffer;

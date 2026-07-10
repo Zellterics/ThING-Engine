@@ -13,7 +13,7 @@ public:
     BufferManager(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Zlog& zlog);
     void createBuffers();
 
-    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint16_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex);
+    void updateCustomBuffers(std::span<Vertex> vertices, std::span<uint32_t> indices, WorldData& worldData, std::span<VkFence> inFlightFences, uint32_t frameIndex);
     void updateIndirectBuffers(std::span<const VkDrawIndexedIndirectCommand> commands, std::vector<VkFence>& inFlightFences, uint32_t frameIndex);
     void updateUniformBuffers(const VkExtent2D& swapChainExtent, float zoom, glm::vec2 offset, uint32_t frameIndex);
     void cleanUp();

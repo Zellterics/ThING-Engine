@@ -183,7 +183,7 @@ void CommandBufferManager::recordInstanceDraw(VkCommandBuffer& commandBuffer, co
     vkCmdBindVertexBuffers(commandBuffer, 0, 2, vb, offsets);
     
     VkBuffer ib = renderContext.bufferManager.viewBuffer(drawBatch.indexBuffer, 0).buffer;
-    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdDrawIndexed(commandBuffer, drawBatch.indexCount, 
         drawBatch.instanceCount, drawBatch.indexOffset, 0, drawBatch.instanceOffset);
@@ -201,7 +201,7 @@ void CommandBufferManager::recordIndirectDraw(VkCommandBuffer& commandBuffer, co
 
     VkBuffer ib = renderContext.bufferManager.viewBuffer(BufferType::Index, 0).buffer;
 
-    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, ib, 0, VK_INDEX_TYPE_UINT32);
 
     VkBuffer indirectBuffer = renderContext.bufferManager.viewBuffer(BufferType::Indirect, renderContext.currentFrame).buffer;
 
