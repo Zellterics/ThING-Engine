@@ -32,7 +32,7 @@ namespace ThING{
 
         // Get Info
         uint32_t getInstanceCount(InstanceType type);
-        void getWindowSize(int* x, int* y);
+        void getWindowSize(int* width, int* height);
         float getZoom(){ return app.zoom; };
         glm::vec2 getOffset(){ return app.offset; };
         

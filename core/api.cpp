@@ -182,8 +182,8 @@ uint32_t ThING::API::getInstanceCount(InstanceType type){
     }
 }
 
-void ThING::API::getWindowSize(int* x, int* y){
-    glfwGetWindowSize(app.windowManager.getWindow(), x, y);
+void ThING::API::getWindowSize(int* width, int* height){
+    glfwGetWindowSize(app.windowManager.getWindow(), width, height);
     return;
 }
 
